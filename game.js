@@ -9,7 +9,7 @@ let skateboardStock = 0;
 let lastSpeedMilestone = 0; 
 let gameActive = false; 
 
-// Yenilenen Hız Ayarları (0.25'ten 0.40'a çıkarılarak %60 hızlandırıldı!)
+// Hız Ayarları
 let speed = 0.40; 
 const maxSpeed = 2.2; 
 
@@ -96,6 +96,19 @@ function closeMarket() {
     updateMenuUI();
 }
 
+// Yeni: Sadece 1 Tane Kaykay Alma
+function buyOneBoard() {
+    if (totalGold >= 5) {
+        totalGold -= 5;
+        skateboardStock += 1;
+        console.log("1 Adet kaykay satın alındı.");
+        updateMarketUI();
+    } else {
+        alert("Yeterli altının yok! 1 Kaykay = 5 Altın.");
+    }
+}
+
+// Bütün Paranla Kaykay Alma
 function buyBoardsWithAllGold() {
     if (totalGold >= 5) {
         let boardsToBuy = Math.floor(totalGold / 5); 
@@ -143,7 +156,7 @@ function loadOnline3DCharacter() {
     const placeholderGeo = new THREE.BoxGeometry(1.2, 1.8, 1.2);
     const placeholderMat = new THREE.MeshBasicMaterial({ visible: false }); 
     player = new THREE.Mesh(placeholderGeo, placeholderMat);
-    player.position.set(0, baseFloorY, 0);
+    player.position.set(0, baseFloorY, 0); // Oyuncu Z=0 noktasında başlıyor!
     scene.add(player);
 
     const modelUrl = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
@@ -278,8 +291,8 @@ function spawnObstacle() {
         obstacleGroup.userData = { type: 'barrier', heightLimit: 1.1 };
     }
 
-    // YENİ DENGELİ SPAWN MESAFESİ (-300'den -180'e çekildi. İdeal uzaktalar!)
-    obstacleGroup.position.set(lanes[laneIndex], 0, -180);
+    // YENİ DÜZENLENMİŞ SPAWN MESAFESİ (-180'den -120'ye çekildi, tam olması gereken yer!)
+    obstacleGroup.position.set(lanes[laneIndex], 0, -120);
     scene.add(obstacleGroup);
     obstacles.push(obstacleGroup);
 }
@@ -304,8 +317,8 @@ function spawnCoin() {
     coin.rotation.x = Math.PI / 2; 
     coin.castShadow = true;
     
-    // Altınların geliş mesafesi de engellerle senkronize edildi (-180)
-    coin.position.set(lanes[laneIndex], height, -180);
+    // Altınların geliş mesafesi de engellerle senkronize edildi (-120)
+    coin.position.set(lanes[laneIndex], height, -120);
 
     scene.add(coin);
     coins.push(coin);
@@ -456,6 +469,7 @@ function handleTouchStart(e) {
     touchStartY = e.changedTouches[0].screenY;
 }
 
+// Swipe Bitiş
 function handleTouchEnd(e) {
     touchEndX = e.changedTouches[0].screenX;
     touchEndY = e.changedTouches[0].screenY;
@@ -666,7 +680,7 @@ function resetGame() {
     jumpVelocity = 0;
     score = 0;
     lastSpeedMilestone = 0;
-    speed = 0.40; // Yenilenen başlangıç hızı
+    speed = 0.40; 
     hasSkateboard = false;
 
     document.getElementById('score-val').innerText = score;
