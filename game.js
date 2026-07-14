@@ -2,21 +2,21 @@
 let scene, camera, renderer;
 let player; 
 let obstacles = [];
-let coins = []; // Altın dizisi
+let coins = []; 
 let score = 0;
-let totalGold = 0; // Toplam altın miktarı
-let skateboardStock = 0; // Satın alınan kaykay sayısı
+let totalGold = 0; 
+let skateboardStock = 0; 
 let lastSpeedMilestone = 0; 
 let gameActive = false; 
 
-// Hız Ayarları (%50 yavaşlatıldı)
-let speed = 0.25; 
-const maxSpeed = 1.8; 
+// Yenilenen Hız Ayarları (0.25'ten 0.40'a çıkarılarak %60 hızlandırıldı!)
+let speed = 0.40; 
+const maxSpeed = 2.2; 
 
 // Kaykay Sistem Değişkenleri
 let hasSkateboard = false;
 let skateboardMesh = null;
-let skateboardTimer = 15; // 15 saniye ömür
+let skateboardTimer = 15; 
 let skateboardInterval = null;
 let lastTapTime = 0; 
 
@@ -37,7 +37,7 @@ const gravity = 0.015;
 const initialJumpForce = 0.35;
 let baseFloorY = 0.9; 
 
-// Mobil / Dokunmatik Kontrol Koordinatları (Swipe)
+// Mobil Kontroller
 let touchStartX = 0;
 let touchStartY = 0;
 let touchEndX = 0;
@@ -76,7 +76,6 @@ function init() {
     window.addEventListener('touchend', handleTouchEnd, false);
     window.addEventListener('resize', onWindowResize);
 
-    // Engelleri ve Altınları Üretme Döngüleri
     setInterval(spawnObstacle, 1100); 
     setInterval(spawnCoin, 800); 
 
@@ -223,7 +222,6 @@ function spawnObstacle() {
     const obstacleGroup = new THREE.Group();
 
     if (obstacleType === 'train') {
-        // 1. Ana Tren Kasası
         const bodyGeo = new THREE.BoxGeometry(1.9, 2.7, 12);
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3c6382, metalness: 0.6, roughness: 0.2 });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
@@ -231,14 +229,12 @@ function spawnObstacle() {
         body.castShadow = true;
         obstacleGroup.add(body);
 
-        // 2. Ön Cam Detayı
         const windowGeo = new THREE.BoxGeometry(1.7, 1.2, 0.1);
         const windowMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.1 });
         const frontWindow = new THREE.Mesh(windowGeo, windowMat);
         frontWindow.position.set(0, 1.8, 6.01);
         obstacleGroup.add(frontWindow);
 
-        // 3. Ön Parlak Farlar
         const headlightGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.2, 16);
         const headlightMat = new THREE.MeshBasicMaterial({ color: 0xfff200 });
         
@@ -254,14 +250,12 @@ function spawnObstacle() {
 
         obstacleGroup.userData = { type: 'train', heightLimit: 2.7 };
     } else {
-        // 1. Üst Geçit Çizgili Barı
         const barGeo = new THREE.BoxGeometry(2.2, 0.25, 0.25);
         const barMat = new THREE.MeshStandardMaterial({ color: 0xf5cd79 });
         const bar = new THREE.Mesh(barGeo, barMat);
         bar.position.y = 0.95;
         obstacleGroup.add(bar);
 
-        // Şerit Süsleri
         const stripeGeo = new THREE.BoxGeometry(0.3, 0.27, 0.27);
         const stripeMat = new THREE.MeshStandardMaterial({ color: 0x1e272e });
         for (let i = -0.8; i <= 0.8; i += 0.4) {
@@ -270,7 +264,6 @@ function spawnObstacle() {
             obstacleGroup.add(stripe);
         }
 
-        // 2. Yan Metal Destek Ayakları
         const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.0, 8);
         const legMat = new THREE.MeshStandardMaterial({ color: 0x57606f, metalness: 0.7 });
         
@@ -285,8 +278,8 @@ function spawnObstacle() {
         obstacleGroup.userData = { type: 'barrier', heightLimit: 1.1 };
     }
 
-    // ARTIK ÇOK DAHA UZAKTAN SPAWN OLUYORLAR (-120 yerine -300)
-    obstacleGroup.position.set(lanes[laneIndex], 0, -300);
+    // YENİ DENGELİ SPAWN MESAFESİ (-300'den -180'e çekildi. İdeal uzaktalar!)
+    obstacleGroup.position.set(lanes[laneIndex], 0, -180);
     scene.add(obstacleGroup);
     obstacles.push(obstacleGroup);
 }
@@ -311,8 +304,8 @@ function spawnCoin() {
     coin.rotation.x = Math.PI / 2; 
     coin.castShadow = true;
     
-    // ALTINLAR DA ENGELLER GİBİ UZAKTAN GELİYOR (-300)
-    coin.position.set(lanes[laneIndex], height, -300);
+    // Altınların geliş mesafesi de engellerle senkronize edildi (-180)
+    coin.position.set(lanes[laneIndex], height, -180);
 
     scene.add(coin);
     coins.push(coin);
@@ -334,46 +327,38 @@ function deploySkateboard() {
     document.getElementById('board-timer').innerText = `Süre: ${skateboardTimer}`;
     document.getElementById('board-timer').style.display = 'block';
 
-    // Gerçekçi Kaykay Grubu (Sıfır Neon, Tamamen Normal)
     const skateboardGroup = new THREE.Group();
 
-    // 1. Ahşap Alt Gövde Malzemesi (Akçaağaç Rengi)
     const woodMat = new THREE.MeshStandardMaterial({ 
-        color: 0xcd853f, // Klasik ahşap rengi
+        color: 0xcd853f, 
         roughness: 0.6,
         metalness: 0.1
     });
 
-    // 2. Üst Siyah Zımpara Malzemesi (Grip Tape)
     const gripTapeMat = new THREE.MeshStandardMaterial({
-        color: 0x222222, // Koyu kaykay zımpara rengi
+        color: 0x222222, 
         roughness: 0.9,
         metalness: 0.0
     });
 
-    // Ana Ahşap Katman
     const boardGeo = new THREE.BoxGeometry(0.9, 0.08, 2.2);
     const boardBase = new THREE.Mesh(boardGeo, woodMat);
     skateboardGroup.add(boardBase);
 
-    // Üst Zımpara Katmanı
     const gripGeo = new THREE.BoxGeometry(0.86, 0.02, 2.16);
     const gripTape = new THREE.Mesh(gripGeo, gripTapeMat);
-    gripTape.position.y = 0.05; // Ahşabın hemen üstüne yapıştır
+    gripTape.position.y = 0.05; 
     skateboardGroup.add(gripTape);
 
-    // Kıvrık Burun (Ahşap)
     const noseGeo = new THREE.BoxGeometry(0.9, 0.2, 0.25);
     const nose = new THREE.Mesh(noseGeo, woodMat);
     nose.position.set(0, 0.08, 1.1);
     skateboardGroup.add(nose);
 
-    // Kıvrık Kuyruk (Ahşap)
     const tail = new THREE.Mesh(noseGeo, woodMat);
     tail.position.set(0, 0.08, -1.1);
     skateboardGroup.add(tail);
 
-    // 3. Alt Dingiller (Metal Miller - Trucks)
     const truckGeo = new THREE.BoxGeometry(0.6, 0.08, 0.1);
     const truckMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, metalness: 0.8, roughness: 0.2 });
     
@@ -385,20 +370,19 @@ function deploySkateboard() {
     backTruck.position.set(0, -0.1, -0.7);
     skateboardGroup.add(backTruck);
 
-    // 4. Küçük Siyah Tekerlekler
     const wheelGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.15, 12);
     const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
 
     const wheelsPos = [
-        [-0.32, -0.12, 0.7],  // Ön Sol
-        [0.32, -0.12, 0.7],   // Ön Sağ
-        [-0.32, -0.12, -0.7], // Arka Sol
-        [0.32, -0.12, -0.7]   // Arka Sağ
+        [-0.32, -0.12, 0.7],  
+        [0.32, -0.12, 0.7],   
+        [-0.32, -0.12, -0.7], 
+        [0.32, -0.12, -0.7]   
     ];
 
     wheelsPos.forEach(pos => {
         const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-        wheel.rotation.z = Math.PI / 2; // Tekerlek yan dursun
+        wheel.rotation.z = Math.PI / 2; 
         wheel.position.set(pos[0], pos[1], pos[2]);
         skateboardGroup.add(wheel);
     });
@@ -407,7 +391,6 @@ function deploySkateboard() {
     skateboardMesh.position.set(0, -0.82, 0); 
     player.add(skateboardMesh);
 
-    // --- KOŞMA ANİMASYONUNU KİLİTLE ---
     if (runningAction) {
         runningAction.stop(); 
     }
@@ -568,7 +551,6 @@ function animate() {
 
     let onATrain = false;
 
-    // 1. Engellerin Hareketi ve Çarpmalar
     for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
         obs.position.z += speed; 
@@ -610,7 +592,6 @@ function animate() {
         }
     }
 
-    // 2. Altınlar
     for (let i = coins.length - 1; i >= 0; i--) {
         const coin = coins[i];
         coin.position.z += speed; 
@@ -685,7 +666,7 @@ function resetGame() {
     jumpVelocity = 0;
     score = 0;
     lastSpeedMilestone = 0;
-    speed = 0.25; 
+    speed = 0.40; // Yenilenen başlangıç hızı
     hasSkateboard = false;
 
     document.getElementById('score-val').innerText = score;
