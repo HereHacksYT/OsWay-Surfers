@@ -1,15 +1,15 @@
 // --- OYUN AYARLARI ---
 let scene, camera, renderer;
-let player;
+let player; 
 let obstacles = [];
 let score = 0;
 let gameActive = true;
-let speed = 0.5; // Başlangıç hızı
-const maxSpeed = 1.5; // Maksimum limit hız
+let speed = 0.5; 
+const maxSpeed = 1.5; 
 
 // Şeritler: Sol (-3), Orta (0), Sağ (3)
 const lanes = [-3, 0, 3];
-let currentLane = 1; // Başlangıçta orta şerit
+let currentLane = 1; 
 let targetX = lanes[currentLane];
 
 // Zıplama Fiziği
@@ -30,11 +30,11 @@ function init() {
     
     // 1. Sahne ve Kamera Kurulumu
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xa0a0a0); // Gri gökyüzü havası
-    scene.fog = new THREE.FogExp2(0xa0a0a0, 0.015); // İlerideki sis efekti (Subway havası)
+    scene.background = new THREE.Color(0xa0a0a0); 
+    scene.fog = new THREE.FogExp2(0xa0a0a0, 0.015); 
 
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 6, 10); // Karakterin arkasından ve yukarısından bakış
+    camera.position.set(0, 6, 10); 
     camera.lookAt(0, 2, -10);
 
     // 2. Renderer (Görselleştirici)
@@ -44,10 +44,10 @@ function init() {
     container.appendChild(renderer.domElement);
 
     // 3. Işıklandırma
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
     dirLight.position.set(10, 20, 10);
     dirLight.castShadow = true;
     scene.add(dirLight);
@@ -55,33 +55,64 @@ function init() {
     // 4. Yol Tasarımı (Metro Rayları)
     createSubwayTracks();
 
-    // 5. Oyuncu Karakteri (Yeşil Küp - OsWay Kahramanı)
-    const playerGeo = new THREE.BoxGeometry(1.2, 1.8, 1.2);
-    const playerMat = new THREE.MeshStandardMaterial({ color: 0x2ed573, roughness: 0.3 });
-    player = new THREE.Mesh(playerGeo, playerMat);
-    player.position.set(0, 0.9, 0);
-    player.castShadow = true;
-    scene.add(player);
+    // 5. İnternetten Doğrudan 3D Karakter Yükleme
+    loadOnline3DCharacter();
 
     // 6. Kontrol Dinleyicileri (Klavye + Mobil Dokunmatik)
     window.addEventListener('keydown', handleKeyDown);
-    
-    // Mobil Swipe (Kaydırma) Algılayıcıları
     window.addEventListener('touchstart', handleTouchStart, false);
     window.addEventListener('touchend', handleTouchEnd, false);
-    
     window.addEventListener('resize', onWindowResize);
 
     // 7. Engelleri Sürekli Üretme Döngüsü
-    setInterval(spawnObstacle, 900); // Her 0.9 saniyede bir yeni engel gelir
+    setInterval(spawnObstacle, 900); 
 
     // Döngüyü Başlat
     animate();
 }
 
+// --- İNTERNETTEN DOĞRUDAN 3D MODEL ÇEKEN FONKSİYON ---
+function loadOnline3DCharacter() {
+    const loader = new THREE.GLTFLoader();
+    
+    // Karakter yüklenene kadar sahnede duracak görünmez çarpışma kutusu
+    const placeholderGeo = new THREE.BoxGeometry(1.2, 1.8, 1.2);
+    const placeholderMat = new THREE.MeshBasicMaterial({ visible: false }); 
+    player = new THREE.Mesh(placeholderGeo, placeholderMat);
+    player.position.set(0, 0.9, 0);
+    scene.add(player);
+
+    // Three.js resmi deposundaki açık kaynaklı hazır 3D robot/insan modeli linki
+    const modelUrl = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
+
+    loader.load(modelUrl, function (gltf) {
+        const model = gltf.scene;
+        
+        // Model boyutunu ve yönünü ayarlıyoruz
+        model.scale.set(0.4, 0.4, 0.4); 
+        model.position.set(0, -0.9, 0); 
+        model.rotation.y = Math.PI; // İleri doğru bakması için döndürdük
+        
+        model.traverse(function (node) {
+            if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+            }
+        });
+
+        // Modeli ana oyuncu nesnesine ekle
+        player.add(model);
+        console.log("Online 3D Karakter Başarıyla Bağlandı!");
+    }, undefined, function (error) {
+        console.error("Model internetten çekilemedi, küp moduna dönülüyor:", error);
+        // İnternet kesilirse veya link patlarsa yeşil küp devreye girer oyun çökmez
+        player.material.visible = true;
+        player.material.color.setHex(0x2ed573);
+    });
+}
+
 // --- METRO RAYLARI VE YOL TASARIMI ---
 function createSubwayTracks() {
-    // Ana Yol Plakası
     const roadGeo = new THREE.PlaneGeometry(12, 1000);
     const roadMat = new THREE.MeshStandardMaterial({ color: 0x2f3542, roughness: 0.8 });
     const road = new THREE.Mesh(roadGeo, roadMat);
@@ -90,10 +121,9 @@ function createSubwayTracks() {
     road.receiveShadow = true;
     scene.add(road);
 
-    // Üç Şerit İçin Ray Çizgileri
     for (let i = 0; i < lanes.length; i++) {
         const trackGeo = new THREE.BoxGeometry(0.2, 0.05, 1000);
-        const trackMat = new THREE.MeshStandardMaterial({ color: 0xfff200 }); // Sarı ray çizgileri
+        const trackMat = new THREE.MeshStandardMaterial({ color: 0xfff200 }); 
         const track = new THREE.Mesh(trackGeo, trackMat);
         track.position.set(lanes[i], 0.02, -450);
         scene.add(track);
@@ -104,28 +134,23 @@ function createSubwayTracks() {
 function spawnObstacle() {
     if (!gameActive) return;
 
-    // Rastgele bir şerit seç (Sol, Orta, Sağ)
     const laneIndex = Math.floor(Math.random() * 3);
-    
-    // %60 ihtimalle tren, %40 ihtimalle alçak bariyer
     const obstacleType = Math.random() > 0.4 ? 'train' : 'barrier';
 
     let geo, mat, height;
     
     if (obstacleType === 'train') {
-        // Tren: Uzun ve yüksek kırmızı bir vagon
         geo = new THREE.BoxGeometry(1.8, 3, 8);
         mat = new THREE.MeshStandardMaterial({ color: 0xff4757, metalness: 0.4, roughness: 0.2 });
         height = 1.5;
     } else {
-        // Bariyer: Üstünden atlanabilen alçak sarı engel
         geo = new THREE.BoxGeometry(2, 1, 0.5);
         mat = new THREE.MeshStandardMaterial({ color: 0xffa502, roughness: 0.5 });
         height = 0.5;
     }
 
     const obs = new THREE.Mesh(geo, mat);
-    obs.position.set(lanes[laneIndex], height, -120); // İleride üretilip bize doğru gelecek
+    obs.position.set(lanes[laneIndex], height, -120); 
     obs.castShadow = true;
 
     scene.add(obs);
@@ -163,18 +188,15 @@ function handleSwipe() {
     const diffX = touchEndX - touchStartX;
     const diffY = touchEndY - touchStartY;
 
-    // Yatayda mı dikeyde mi daha çok kaydırılmış?
     if (Math.abs(diffX) > Math.abs(diffY)) {
-        // Yatay kaydırma
         if (diffX > 50) {
             moveRight();
         } else if (diffX < -50) {
             moveLeft();
         }
     } else {
-        // Dikey kaydırma
         if (diffY < -50) {
-            jump(); // Yukarı kaydırınca zıpla
+            jump(); 
         }
     }
 }
@@ -207,40 +229,38 @@ function animate() {
         requestAnimationFrame(animate);
     }
 
-    // 1. Yumuşak Şerit Geçişi (Lerp mekaniği)
-    player.position.x += (targetX - player.position.x) * 0.22;
+    if (player) {
+        // Yumuşak Şerit Geçişi (Lerp)
+        player.position.x += (targetX - player.position.x) * 0.22;
 
-    // 2. Zıplama ve Yerçekimi Fiziği
-    if (isJumping) {
-        player.position.y += jumpVelocity;
-        jumpVelocity -= gravity;
+        // Zıplama ve Yerçekimi Fiziği
+        if (isJumping) {
+            player.position.y += jumpVelocity;
+            jumpVelocity -= gravity;
 
-        // Yere inme kontrolü
-        if (player.position.y <= 0.9) {
-            player.position.y = 0.9;
-            isJumping = false;
-            jumpVelocity = 0;
+            if (player.position.y <= 0.9) {
+                player.position.y = 0.9;
+                isJumping = false;
+                jumpVelocity = 0;
+            }
         }
     }
 
-    // 3. Engellerin Hareketi ve Çarpışma Testi
+    // Engellerin Hareketi ve Çarpışma Testi
     for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
-        obs.position.z += speed; // Engelleri oyuncuya doğru yaklaştır
+        obs.position.z += speed; 
 
-        // Çarpışma Kontrolü (Bounding Box)
-        if (checkCollision(player, obs)) {
+        if (player && checkCollision(player, obs)) {
             gameOver();
         }
 
-        // Ekranı geçen engelleri temizle ve skor ekle
         if (obs.position.z > 15) {
             scene.remove(obs);
             obstacles.splice(i, 1);
             score += 10;
             document.getElementById('score-val').innerText = score;
 
-            // Oyun ilerledikçe hızı artır
             if (speed < maxSpeed) {
                 speed += 0.008;
             }
@@ -250,7 +270,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// --- BASİT 3D KUTU ÇARPIŞMA SİSTEMİ (AABB) ---
+// --- BASİT 3D ÇARPIŞMA SİSTEMİ ---
 function checkCollision(obj1, obj2) {
     const box1 = new THREE.Box3().setFromObject(obj1);
     const box2 = new THREE.Box3().setFromObject(obj2);
@@ -266,14 +286,12 @@ function gameOver() {
 
 // --- OYUNU SIFIRLA / YENİDEN BAŞLA ---
 function resetGame() {
-    // Sahnedeki tüm eski engelleri sil
     obstacles.forEach(obs => scene.remove(obs));
     obstacles = [];
     
-    // Değişkenleri ilk değerine döndür
     currentLane = 1;
     targetX = lanes[currentLane];
-    player.position.set(0, 0.9, 0);
+    if (player) player.position.set(0, 0.9, 0);
     isJumping = false;
     jumpVelocity = 0;
     score = 0;
@@ -282,17 +300,14 @@ function resetGame() {
     document.getElementById('score-val').innerText = score;
     document.getElementById('game-over-screen').style.display = 'none';
 
-    // Oyunu tekrar başlat
     gameActive = true;
     animate();
 }
 
-// Ekran boyutu değiştiğinde 3D sahneyi yeniden boyutlandır
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Sayfa yüklendiğinde motoru çalıştır
 window.onload = init;
