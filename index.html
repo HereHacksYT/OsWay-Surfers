@@ -21,19 +21,36 @@
             left: 0;
             z-index: 1;
         }
+        /* Ekran Göstergeleri */
         #ui {
             position: absolute;
             top: 20px;
             left: 20px;
             color: white;
-            font-size: 28px;
+            font-size: 24px;
             font-weight: bold;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             pointer-events: none;
             z-index: 10;
-            display: none; /* Oyun başlayana kadar gizli */
+            display: none;
         }
-        /* Başlangıç Ekranı */
+        .ui-item {
+            margin-bottom: 5px;
+        }
+        #gold-ui { color: #ffd700; } /* Altın rengi */
+        #board-ui { color: #00d2d3; } /* Kaykay rengi */
+        #board-timer {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #00d2d3;
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            display: none;
+            z-index: 10;
+        }
+        /* Başlangıç Ekranı ve Market */
         #start-screen {
             position: absolute;
             top: 50%;
@@ -41,19 +58,26 @@
             transform: translate(-50%, -50%);
             text-align: center;
             color: white;
-            background: rgba(0, 0, 0, 0.85);
-            padding: 40px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px;
             border-radius: 20px;
             border: 4px solid #2ed573;
             z-index: 30;
-            width: 80%;
+            width: 85%;
             max-width: 400px;
         }
         #start-screen h1 {
-            margin: 0 0 20px 0;
-            font-size: 48px;
+            margin: 0 0 10px 0;
+            font-size: 42px;
             color: #2ed573;
             text-shadow: 2px 2px 0px #fff;
+        }
+        .stats-box {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-size: 18px;
         }
         /* Oyun Bitti Ekranı */
         #game-over-screen {
@@ -63,7 +87,7 @@
             transform: translate(-50%, -50%);
             text-align: center;
             color: white;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             padding: 40px;
             border-radius: 20px;
             border: 4px solid #ff4757;
@@ -77,7 +101,7 @@
             font-size: 44px;
             color: #ff4757;
         }
-        /* Yeşil Üstüne Beyaz Yazılı Buton Sınıfı */
+        /* Buton Tasarımları */
         .btn-green {
             background-color: #2ed573;
             border: none;
@@ -87,19 +111,32 @@
             font-weight: bold;
             border-radius: 8px;
             cursor: pointer;
-            margin-top: 20px;
+            margin-top: 10px;
             transition: 0.2s;
             width: 100%;
             box-shadow: 0 5px 0px #26af5f;
         }
-        .btn-green:hover {
-            background-color: #26af5f;
-            transform: translateY(2px);
-            box-shadow: 0 3px 0px #1e8749;
-        }
         .btn-green:active {
-            transform: translateY(5px);
-            box-shadow: 0 0px 0px #1e8749;
+            transform: translateY(4px);
+            box-shadow: 0 1px 0px #26af5f;
+        }
+        .btn-yellow {
+            background-color: #ffd700;
+            border: none;
+            color: #111;
+            padding: 12px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: 0.2s;
+            width: 100%;
+            box-shadow: 0 4px 0px #cca100;
+        }
+        .btn-yellow:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0px #cca100;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -109,16 +146,30 @@
 
     <div id="start-screen">
         <h1>OsWay Surfers</h1>
-        <p>3D Metro Macerasına Hazır mısın?</p>
+        <p>Metro Macerası Başlıyor!</p>
+        
+        <div class="stats-box">
+            <div id="menu-gold">Altının: 🌟 0</div>
+            <div id="menu-boards">Kaykayın: 🛹 0 adet</div>
+        </div>
+
         <button class="btn-green" onclick="startGame()">BAŞLA</button>
+        <button class="btn-yellow" onclick="buyBoardsWithAllGold()">KAYKAY AL (5 Altın)</button>
+        <p style="font-size:12px; color:#aaa; margin-top:5px;">Çift Tıkla veya Boşluk Tuşu ile Kaykay Açılır!</p>
     </div>
 
-    <div id="ui">Skor: <span id="score-val">0</span></div>
+    <div id="ui">
+        <div class="ui-item">Skor: <span id="score-val">0</span></div>
+        <div id="gold-ui" class="ui-item">Altın: 🌟 <span id="gold-val">0</span></div>
+        <div id="board-ui" class="ui-item">Kaykay: 🛹 <span id="board-val">0</span></div>
+    </div>
+
+    <div id="board-timer">Süre: 15</div>
 
     <div id="game-over-screen">
         <h1>YAKALANDIN!</h1>
-        <p>OsWay Surfers maceran bitti.</p>
         <p>Skorun: <span id="final-score">0</span></p>
+        <p>Toplanan Altın: 🌟 <span id="final-gold">0</span></p>
         <button class="btn-green" onclick="resetGame()">Yeniden Başla</button>
     </div>
 
