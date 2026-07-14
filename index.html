@@ -37,8 +37,8 @@
         .ui-item {
             margin-bottom: 5px;
         }
-        #gold-ui { color: #ffd700; } /* Altın rengi */
-        #board-ui { color: #00d2d3; } /* Kaykay rengi */
+        #gold-ui { color: #ffd700; }
+        #board-ui { color: #00d2d3; }
         #board-timer {
             position: absolute;
             top: 20px;
@@ -50,7 +50,7 @@
             display: none;
             z-index: 10;
         }
-        /* Başlangıç Ekranı ve Market */
+        /* Başlangıç Ekranı */
         #start-screen {
             position: absolute;
             top: 50%;
@@ -78,6 +78,19 @@
             border-radius: 10px;
             margin: 15px 0;
             font-size: 18px;
+        }
+        /* Market Bölümü */
+        .market-section {
+            border-top: 2px dashed #ffd700;
+            margin-top: 20px;
+            padding-top: 15px;
+        }
+        .market-title {
+            font-size: 22px;
+            color: #ffd700;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
         }
         /* Oyun Bitti Ekranı */
         #game-over-screen {
@@ -129,7 +142,7 @@
             font-weight: bold;
             border-radius: 8px;
             cursor: pointer;
-            margin-top: 10px;
+            margin-top: 5px;
             transition: 0.2s;
             width: 100%;
             box-shadow: 0 4px 0px #cca100;
@@ -154,8 +167,13 @@
         </div>
 
         <button class="btn-green" onclick="startGame()">BAŞLA</button>
-        <button class="btn-yellow" onclick="buyBoardsWithAllGold()">KAYKAY AL (5 Altın)</button>
-        <p style="font-size:12px; color:#aaa; margin-top:5px;">Çift Tıkla veya Boşluk Tuşu ile Kaykay Açılır!</p>
+
+        <div class="market-section">
+            <div class="market-title">🛒 METRO MARKET</div>
+            <button class="btn-yellow" onclick="buyBoardsWithAllGold()">🛹 NEON KAYKAY AL (5 Altın)</button>
+        </div>
+        
+        <p style="font-size:12px; color:#aaa; margin-top:10px;">Çift Tıkla veya Boşluk Tuşu ile Kaykay Açılır!</p>
     </div>
 
     <div id="ui">
