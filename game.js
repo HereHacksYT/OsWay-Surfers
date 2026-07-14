@@ -84,14 +84,26 @@ function init() {
     renderer.render(scene, camera);
 }
 
-// --- MARKET SİSTEMİ ---
+// --- MARKET MENÜ KONTROLLERİ ---
+function openMarket() {
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('market-screen').style.display = 'block';
+    updateMarketUI();
+}
+
+function closeMarket() {
+    document.getElementById('market-screen').style.display = 'none';
+    document.getElementById('start-screen').style.display = 'block';
+    updateMenuUI();
+}
+
 function buyBoardsWithAllGold() {
     if (totalGold >= 5) {
         let boardsToBuy = Math.floor(totalGold / 5); 
         totalGold = totalGold % 5; 
         skateboardStock += boardsToBuy;
         console.log(`${boardsToBuy} adet kaykay alındı. Kalan altın: ${totalGold}`);
-        updateMenuUI();
+        updateMarketUI();
     } else {
         alert("Yeterli altının yok! Bir kaykay 5 Altın.");
     }
@@ -102,9 +114,15 @@ function updateMenuUI() {
     document.getElementById('menu-boards').innerText = `Kaykayın: 🛹 ${skateboardStock} adet`;
 }
 
+function updateMarketUI() {
+    document.getElementById('market-gold').innerText = `Altının: 🌟 ${totalGold}`;
+    document.getElementById('market-boards').innerText = `Kaykayın: 🛹 ${skateboardStock} adet`;
+}
+
 // --- OYUNU BAŞLATMA ---
 function startGame() {
     document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('market-screen').style.display = 'none';
     document.getElementById('ui').style.display = 'block';
     
     document.getElementById('gold-val').innerText = totalGold;
@@ -243,7 +261,7 @@ function spawnObstacle() {
         bar.position.y = 0.95;
         obstacleGroup.add(bar);
 
-        // Şerit Süsleri (Çizgili bariyer görüntüsü için)
+        // Şerit Süsleri
         const stripeGeo = new THREE.BoxGeometry(0.3, 0.27, 0.27);
         const stripeMat = new THREE.MeshStandardMaterial({ color: 0x1e272e });
         for (let i = -0.8; i <= 0.8; i += 0.4) {
@@ -267,7 +285,8 @@ function spawnObstacle() {
         obstacleGroup.userData = { type: 'barrier', heightLimit: 1.1 };
     }
 
-    obstacleGroup.position.set(lanes[laneIndex], 0, -120);
+    // ARTIK ÇOK DAHA UZAKTAN SPAWN OLUYORLAR (-120 yerine -300)
+    obstacleGroup.position.set(lanes[laneIndex], 0, -300);
     scene.add(obstacleGroup);
     obstacles.push(obstacleGroup);
 }
@@ -291,13 +310,15 @@ function spawnCoin() {
     const coin = new THREE.Mesh(coinGeo, coinMat);
     coin.rotation.x = Math.PI / 2; 
     coin.castShadow = true;
-    coin.position.set(lanes[laneIndex], height, -120);
+    
+    // ALTINLAR DA ENGELLER GİBİ UZAKTAN GELİYOR (-300)
+    coin.position.set(lanes[laneIndex], height, -300);
 
     scene.add(coin);
     coins.push(coin);
 }
 
-// --- PARILDAYAN ULTRA NEON KAYKAY TASARIMI ---
+// --- NORMAL GERÇEKÇİ KAYKAY TASARIMI ---
 function deploySkateboard() {
     if (hasSkateboard || !gameActive || !player) return;
     if (skateboardStock <= 0) {
@@ -313,43 +334,77 @@ function deploySkateboard() {
     document.getElementById('board-timer').innerText = `Süre: ${skateboardTimer}`;
     document.getElementById('board-timer').style.display = 'block';
 
-    // Kaliteli Neon Jet Kaykay Grubu
+    // Gerçekçi Kaykay Grubu (Sıfır Neon, Tamamen Normal)
     const skateboardGroup = new THREE.Group();
 
-    // 1. Parlayan Neon Malzeme (MeshPhong kullanarak ışık patlaması efekti veriyoruz)
-    const neonMat = new THREE.MeshPhongMaterial({ 
-        color: 0x00ffff, 
-        emissive: 0x00ffff, // Turkuaz neon parlaması
-        emissiveIntensity: 1.5,
-        shininess: 100
+    // 1. Ahşap Alt Gövde Malzemesi (Akçaağaç Rengi)
+    const woodMat = new THREE.MeshStandardMaterial({ 
+        color: 0xcd853f, // Klasik ahşap rengi
+        roughness: 0.6,
+        metalness: 0.1
     });
 
-    // 2. Kaykay Gövdesi (Aerodinamik, Uçları Havada)
-    const boardGeo = new THREE.BoxGeometry(0.9, 0.12, 2.2);
-    const boardMain = new THREE.Mesh(boardGeo, neonMat);
-    skateboardGroup.add(boardMain);
+    // 2. Üst Siyah Zımpara Malzemesi (Grip Tape)
+    const gripTapeMat = new THREE.MeshStandardMaterial({
+        color: 0x222222, // Koyu kaykay zımpara rengi
+        roughness: 0.9,
+        metalness: 0.0
+    });
 
-    // Kıvrık Burun
-    const noseGeo = new THREE.BoxGeometry(0.9, 0.25, 0.3);
-    const nose = new THREE.Mesh(noseGeo, neonMat);
-    nose.position.set(0, 0.12, 1.1);
+    // Ana Ahşap Katman
+    const boardGeo = new THREE.BoxGeometry(0.9, 0.08, 2.2);
+    const boardBase = new THREE.Mesh(boardGeo, woodMat);
+    skateboardGroup.add(boardBase);
+
+    // Üst Zımpara Katmanı
+    const gripGeo = new THREE.BoxGeometry(0.86, 0.02, 2.16);
+    const gripTape = new THREE.Mesh(gripGeo, gripTapeMat);
+    gripTape.position.y = 0.05; // Ahşabın hemen üstüne yapıştır
+    skateboardGroup.add(gripTape);
+
+    // Kıvrık Burun (Ahşap)
+    const noseGeo = new THREE.BoxGeometry(0.9, 0.2, 0.25);
+    const nose = new THREE.Mesh(noseGeo, woodMat);
+    nose.position.set(0, 0.08, 1.1);
     skateboardGroup.add(nose);
 
-    // Kıvrık Kuyruk
-    const tail = new THREE.Mesh(noseGeo, neonMat);
-    tail.position.set(0, 0.12, -1.1);
+    // Kıvrık Kuyruk (Ahşap)
+    const tail = new THREE.Mesh(noseGeo, woodMat);
+    tail.position.set(0, 0.08, -1.1);
     skateboardGroup.add(tail);
 
-    // 3. Egzos Detayı (Kırmızı Neon Alev Çıkışı)
-    const exhaustGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.6, 8);
-    const exhaustMat = new THREE.MeshPhongMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 2.0 });
-    const exhaust = new THREE.Mesh(exhaustGeo, exhaustMat);
-    exhaust.rotation.x = Math.PI / 2;
-    exhaust.position.set(0, -0.12, -0.9);
-    skateboardGroup.add(exhaust);
+    // 3. Alt Dingiller (Metal Miller - Trucks)
+    const truckGeo = new THREE.BoxGeometry(0.6, 0.08, 0.1);
+    const truckMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, metalness: 0.8, roughness: 0.2 });
+    
+    const frontTruck = new THREE.Mesh(truckGeo, truckMat);
+    frontTruck.position.set(0, -0.1, 0.7);
+    skateboardGroup.add(frontTruck);
+
+    const backTruck = new THREE.Mesh(truckGeo, truckMat);
+    backTruck.position.set(0, -0.1, -0.7);
+    skateboardGroup.add(backTruck);
+
+    // 4. Küçük Siyah Tekerlekler
+    const wheelGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.15, 12);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+
+    const wheelsPos = [
+        [-0.32, -0.12, 0.7],  // Ön Sol
+        [0.32, -0.12, 0.7],   // Ön Sağ
+        [-0.32, -0.12, -0.7], // Arka Sol
+        [0.32, -0.12, -0.7]   // Arka Sağ
+    ];
+
+    wheelsPos.forEach(pos => {
+        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+        wheel.rotation.z = Math.PI / 2; // Tekerlek yan dursun
+        wheel.position.set(pos[0], pos[1], pos[2]);
+        skateboardGroup.add(wheel);
+    });
 
     skateboardMesh = skateboardGroup;
-    skateboardMesh.position.set(0, -0.85, 0); 
+    skateboardMesh.position.set(0, -0.82, 0); 
     player.add(skateboardMesh);
 
     // --- KOŞMA ANİMASYONUNU KİLİTLE ---
@@ -513,7 +568,7 @@ function animate() {
 
     let onATrain = false;
 
-    // 1. Engellerin Hareketi ve Çarpışma Testi
+    // 1. Engellerin Hareketi ve Çarpmalar
     for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
         obs.position.z += speed; 
@@ -555,7 +610,7 @@ function animate() {
         }
     }
 
-    // 2. Altınların Hareketi, Dönüşü ve Toplanması
+    // 2. Altınlar
     for (let i = coins.length - 1; i >= 0; i--) {
         const coin = coins[i];
         coin.position.z += speed; 
