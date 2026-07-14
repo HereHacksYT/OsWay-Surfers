@@ -16,7 +16,7 @@ const maxSpeed = 1.8;
 // Kaykay Sistem Değişkenleri
 let hasSkateboard = false;
 let skateboardMesh = null;
-let skateboardTimer = 15; // 15 saniye ömrü var
+let skateboardTimer = 15; // 15 saniye ömür
 let skateboardInterval = null;
 let lastTapTime = 0; 
 
@@ -78,17 +78,17 @@ function init() {
 
     // Engelleri ve Altınları Üretme Döngüleri
     setInterval(spawnObstacle, 1100); 
-    setInterval(spawnCoin, 800); // Sık sık altın gelsin
+    setInterval(spawnCoin, 800); 
 
     updateMenuUI();
     renderer.render(scene, camera);
 }
 
-// --- MARKET SİSTEMİ (TÜM PARAYLA KAYKAY ALMA) ---
+// --- MARKET SİSTEMİ ---
 function buyBoardsWithAllGold() {
     if (totalGold >= 5) {
-        let boardsToBuy = Math.floor(totalGold / 5); // Ne kadar yetiyorsa o kadar al
-        totalGold = totalGold % 5; // Kalan altını bırak
+        let boardsToBuy = Math.floor(totalGold / 5); 
+        totalGold = totalGold % 5; 
         skateboardStock += boardsToBuy;
         console.log(`${boardsToBuy} adet kaykay alındı. Kalan altın: ${totalGold}`);
         updateMenuUI();
@@ -166,7 +166,7 @@ function loadOnline3DCharacter() {
     });
 }
 
-// --- METRO RAYLARI ---
+// --- DETAYLI METRO RAYLARI ---
 function createSubwayTracks() {
     const roadGeo = new THREE.PlaneGeometry(12, 1000);
     const roadMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.9 });
@@ -175,6 +175,17 @@ function createSubwayTracks() {
     road.position.z = -450;
     road.receiveShadow = true;
     scene.add(road);
+
+    const wallGeo = new THREE.BoxGeometry(0.5, 15, 1000);
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.7 });
+    
+    const leftWall = new THREE.Mesh(wallGeo, wallMat);
+    leftWall.position.set(-6.5, 7.5, -450);
+    scene.add(leftWall);
+
+    const rightWall = new THREE.Mesh(wallGeo, wallMat);
+    rightWall.position.set(6.5, 7.5, -450);
+    scene.add(rightWall);
 
     for (let i = 0; i < lanes.length; i++) {
         const trackGeo = new THREE.BoxGeometry(0.3, 0.1, 1000);
@@ -185,7 +196,7 @@ function createSubwayTracks() {
     }
 }
 
-// --- ENGELLERİ ÜRET ---
+// --- DETAYLI VE KALİTELİ 3D ENGELLER ---
 function spawnObstacle() {
     if (!gameActive) return;
 
@@ -194,6 +205,7 @@ function spawnObstacle() {
     const obstacleGroup = new THREE.Group();
 
     if (obstacleType === 'train') {
+        // 1. Ana Tren Kasası
         const bodyGeo = new THREE.BoxGeometry(1.9, 2.7, 12);
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3c6382, metalness: 0.6, roughness: 0.2 });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
@@ -201,20 +213,46 @@ function spawnObstacle() {
         body.castShadow = true;
         obstacleGroup.add(body);
 
+        // 2. Ön Cam Detayı
         const windowGeo = new THREE.BoxGeometry(1.7, 1.2, 0.1);
         const windowMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.1 });
         const frontWindow = new THREE.Mesh(windowGeo, windowMat);
         frontWindow.position.set(0, 1.8, 6.01);
         obstacleGroup.add(frontWindow);
 
+        // 3. Ön Parlak Farlar
+        const headlightGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.2, 16);
+        const headlightMat = new THREE.MeshBasicMaterial({ color: 0xfff200 });
+        
+        const leftLight = new THREE.Mesh(headlightGeo, headlightMat);
+        leftLight.rotation.x = Math.PI / 2;
+        leftLight.position.set(-0.6, 0.6, 6.01);
+        obstacleGroup.add(leftLight);
+
+        const rightLight = new THREE.Mesh(headlightGeo, headlightMat);
+        rightLight.rotation.x = Math.PI / 2;
+        rightLight.position.set(0.6, 0.6, 6.01);
+        obstacleGroup.add(rightLight);
+
         obstacleGroup.userData = { type: 'train', heightLimit: 2.7 };
     } else {
+        // 1. Üst Geçit Çizgili Barı
         const barGeo = new THREE.BoxGeometry(2.2, 0.25, 0.25);
         const barMat = new THREE.MeshStandardMaterial({ color: 0xf5cd79 });
         const bar = new THREE.Mesh(barGeo, barMat);
         bar.position.y = 0.95;
         obstacleGroup.add(bar);
 
+        // Şerit Süsleri (Çizgili bariyer görüntüsü için)
+        const stripeGeo = new THREE.BoxGeometry(0.3, 0.27, 0.27);
+        const stripeMat = new THREE.MeshStandardMaterial({ color: 0x1e272e });
+        for (let i = -0.8; i <= 0.8; i += 0.4) {
+            const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+            stripe.position.set(i, 0.95, 0);
+            obstacleGroup.add(stripe);
+        }
+
+        // 2. Yan Metal Destek Ayakları
         const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.0, 8);
         const legMat = new THREE.MeshStandardMaterial({ color: 0x57606f, metalness: 0.7 });
         
@@ -238,14 +276,10 @@ function spawnObstacle() {
 function spawnCoin() {
     if (!gameActive) return;
 
-    // Engel olmayan boş alanlara ya da tren üstlerine altın koymak için rastgele bir şerit seç
     const laneIndex = Math.floor(Math.random() * 3);
-    
-    // Altınların duracağı yükseklik: %30 ihtimalle tren üstü hizasında, %70 havada/yerde
     const isHigh = Math.random() > 0.7;
     const height = isHigh ? 4.0 : 1.2;
 
-    // Havalı parıldayan dönen altın silindiri (bozuk para görünümü)
     const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
     const coinMat = new THREE.MeshStandardMaterial({ 
         color: 0xffd700, 
@@ -255,7 +289,7 @@ function spawnCoin() {
         emissiveIntensity: 0.3
     });
     const coin = new THREE.Mesh(coinGeo, coinMat);
-    coin.rotation.x = Math.PI / 2; // Dik dursun
+    coin.rotation.x = Math.PI / 2; 
     coin.castShadow = true;
     coin.position.set(lanes[laneIndex], height, -120);
 
@@ -263,7 +297,7 @@ function spawnCoin() {
     coins.push(coin);
 }
 
-// --- KALİTELİ KAYKAY (HOVERBOARD) MEKANİĞİ ---
+// --- PARILDAYAN ULTRA NEON KAYKAY TASARIMI ---
 function deploySkateboard() {
     if (hasSkateboard || !gameActive || !player) return;
     if (skateboardStock <= 0) {
@@ -271,52 +305,58 @@ function deploySkateboard() {
         return;
     }
 
-    // Stok düşür ve güncelle
     skateboardStock--;
     document.getElementById('board-val').innerText = skateboardStock;
 
     hasSkateboard = true;
-    skateboardTimer = 15; // 15 saniye ömür
+    skateboardTimer = 15; 
     document.getElementById('board-timer').innerText = `Süre: ${skateboardTimer}`;
     document.getElementById('board-timer').style.display = 'block';
 
-    // Kaliteli Kıvrımlı Jet Kaykay Tasarımı
+    // Kaliteli Neon Jet Kaykay Grubu
     const skateboardGroup = new THREE.Group();
 
-    // 1. Kaykay Gövdesi (Ana Tahta)
-    const boardGeo = new THREE.BoxGeometry(1.0, 0.15, 2.2);
-    const boardMat = new THREE.MeshStandardMaterial({ color: 0x00d2d3, roughness: 0.2 });
-    const boardMain = new THREE.Mesh(boardGeo, boardMat);
+    // 1. Parlayan Neon Malzeme (MeshPhong kullanarak ışık patlaması efekti veriyoruz)
+    const neonMat = new THREE.MeshPhongMaterial({ 
+        color: 0x00ffff, 
+        emissive: 0x00ffff, // Turkuaz neon parlaması
+        emissiveIntensity: 1.5,
+        shininess: 100
+    });
+
+    // 2. Kaykay Gövdesi (Aerodinamik, Uçları Havada)
+    const boardGeo = new THREE.BoxGeometry(0.9, 0.12, 2.2);
+    const boardMain = new THREE.Mesh(boardGeo, neonMat);
     skateboardGroup.add(boardMain);
 
-    // 2. Ön ve Arka Kıvrım Detayları
-    const noseGeo = new THREE.BoxGeometry(1.0, 0.3, 0.3);
-    const nose = new THREE.Mesh(noseGeo, boardMat);
-    nose.position.set(0, 0.15, 1.1);
+    // Kıvrık Burun
+    const noseGeo = new THREE.BoxGeometry(0.9, 0.25, 0.3);
+    const nose = new THREE.Mesh(noseGeo, neonMat);
+    nose.position.set(0, 0.12, 1.1);
     skateboardGroup.add(nose);
 
-    const tail = new THREE.Mesh(noseGeo, boardMat);
-    tail.position.set(0, 0.15, -1.1);
+    // Kıvrık Kuyruk
+    const tail = new THREE.Mesh(noseGeo, neonMat);
+    tail.position.set(0, 0.12, -1.1);
     skateboardGroup.add(tail);
 
-    // 3. Altındaki Parlayan Neon Jet Motoru (Egzos)
-    const jetGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.8, 8);
-    const jetMat = new THREE.MeshStandardMaterial({ color: 0xff4757, emissive: 0xff4757, emissiveIntensity: 1.5 });
-    const jet = new THREE.Mesh(jetGeo, jetMat);
-    jet.rotation.x = Math.PI / 2;
-    jet.position.set(0, -0.15, -0.8);
-    skateboardGroup.add(jet);
+    // 3. Egzos Detayı (Kırmızı Neon Alev Çıkışı)
+    const exhaustGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.6, 8);
+    const exhaustMat = new THREE.MeshPhongMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 2.0 });
+    const exhaust = new THREE.Mesh(exhaustGeo, exhaustMat);
+    exhaust.rotation.x = Math.PI / 2;
+    exhaust.position.set(0, -0.12, -0.9);
+    skateboardGroup.add(exhaust);
 
     skateboardMesh = skateboardGroup;
     skateboardMesh.position.set(0, -0.85, 0); 
     player.add(skateboardMesh);
 
-    // --- ANIMASYONUNU DURDUR ---
+    // --- KOŞMA ANİMASYONUNU KİLİTLE ---
     if (runningAction) {
-        runningAction.stop(); // Kaykaydayken koşma animasyonunu kilitliyoruz
+        runningAction.stop(); 
     }
 
-    // 15 Saniyelik Geri Sayım Sayacı
     skateboardInterval = setInterval(() => {
         if (!gameActive) {
             clearInterval(skateboardInterval);
@@ -343,7 +383,6 @@ function destroySkateboard() {
     }
     hasSkateboard = false;
     
-    // Koşma animasyonunu tekrar başlat
     if (runningAction && gameActive) {
         runningAction.play();
     }
@@ -417,7 +456,6 @@ function jump() {
         isJumping = true;
         jumpVelocity = initialJumpForce;
         
-        // Sadece kaykay yoksa zıplama animasyonunu oynat
         if (!hasSkateboard && runningAction && jumpingAction) {
             runningAction.stop();
             jumpingAction.reset().play();
@@ -447,7 +485,6 @@ function animate() {
     }
 
     const delta = clock.getDelta();
-    // Kaykay yoksa animasyonu normal sürdür, varsa robotun animasyon motorunu güncelleme
     if (mixer && !hasSkateboard) {
         mixer.update(delta);
     }
@@ -508,7 +545,6 @@ function animate() {
             score += 10;
             document.getElementById('score-val').innerText = score;
 
-            // --- 100 PUANDA BİR %10 HIZLANMA FORMÜLÜ ---
             if (score > 0 && score % 100 === 0 && score !== lastSpeedMilestone) {
                 lastSpeedMilestone = score; 
                 if (speed < maxSpeed) {
@@ -523,15 +559,14 @@ function animate() {
     for (let i = coins.length - 1; i >= 0; i--) {
         const coin = coins[i];
         coin.position.z += speed; 
-        coin.rotation.z += 0.05; // Kendi etrafında dönme efekti
+        coin.rotation.z += 0.05; 
 
         if (player) {
             const pBox = new THREE.Box3().setFromObject(player);
             const cBox = new THREE.Box3().setFromObject(coin);
 
-            // Oyuncu altına çarparsa (toplarsa)
             if (pBox.intersectsBox(cBox)) {
-                totalGold += 1; // Altını artır
+                totalGold += 1; 
                 document.getElementById('gold-val').innerText = totalGold;
                 
                 scene.remove(coin);
@@ -540,7 +575,6 @@ function animate() {
             }
         }
 
-        // Ekrandan çıkan altını sil
         if (coin.position.z > 15) {
             scene.remove(coin);
             coins.splice(i, 1);
@@ -596,14 +630,12 @@ function resetGame() {
     jumpVelocity = 0;
     score = 0;
     lastSpeedMilestone = 0;
-    speed = 0.25; // %50 düşürülmüş başlangıç hızı
+    speed = 0.25; 
     hasSkateboard = false;
 
-    // Skor göstergelerini sıfırla ama toplam altını ve kaykay stokunu koru!
     document.getElementById('score-val').innerText = score;
     document.getElementById('game-over-screen').style.display = 'none';
 
-    // Menüye geri dönüp marketi göster
     updateMenuUI();
     document.getElementById('start-screen').style.display = 'block';
     document.getElementById('ui').style.display = 'none';
