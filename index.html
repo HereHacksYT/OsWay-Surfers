@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>OsWay Surfers - 3D</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background-color: #111;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            z-index: 10;
+        }
+        #game-over-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            border: 4px solid #ff4757;
+            display: none;
+            z-index: 20;
+            width: 80%;
+            max-width: 400px;
+        }
+        #game-over-screen h1 {
+            margin: 0 0 10px 0;
+            font-size: 44px;
+            color: #ff4757;
+        }
+        #game-over-screen p {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        button {
+            background-color: #2ed573;
+            border: none;
+            color: white;
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: 0.2s;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #26af5f;
+            transform: scale(1.02);
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="ui">Skor: <span id="score-val">0</span></div>
+
+    <div id="game-over-screen">
+        <h1>YAKALANDIN!</h1>
+        <p>OsWay Surfers maceran bitti.</p>
+        <p>Skorun: <span id="final-score">0</span></p>
+        <button onclick="resetGame()">Yeniden Başla</button>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script src="game.js"></script>
+</body>
+</html>
