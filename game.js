@@ -7,12 +7,17 @@ let gameActive = true;
 let speed = 0.5; 
 const maxSpeed = 1.5; 
 
+// Animasyon Değişkenleri
+let mixer; // Karakterin animasyonlarını oynatacak motor
+let clock = new THREE.Clock();
+let runningAction, jumpingAction, idleAction;
+
 // Şeritler: Sol (-3), Orta (0), Sağ (3)
 const lanes = [-3, 0, 3];
 let currentLane = 1; 
 let targetX = lanes[currentLane];
 
-// Zıplama Fiziği
+// Zıplama ve Eğilme (Aşağı İnme) Fiziği
 let isJumping = false;
 let jumpVelocity = 0;
 const gravity = 0.015;
@@ -55,7 +60,7 @@ function init() {
     // 4. Yol Tasarımı (Metro Rayları)
     createSubwayTracks();
 
-    // 5. İnternetten Doğrudan 3D Karakter Yükleme
+    // 5. İnternetten Animasyonlu 3D Karakter Yükleme
     loadOnline3DCharacter();
 
     // 6. Kontrol Dinleyicileri (Klavye + Mobil Dokunmatik)
@@ -71,7 +76,7 @@ function init() {
     animate();
 }
 
-// --- İNTERNETTEN DOĞRUDAN 3D MODEL ÇEKEN FONKSİYON ---
+// --- İNTERNETTEN ANIMASYONLU 3D MODEL ÇEKEN FONKSİYON ---
 function loadOnline3DCharacter() {
     const loader = new THREE.GLTFLoader();
     
@@ -82,16 +87,14 @@ function loadOnline3DCharacter() {
     player.position.set(0, 0.9, 0);
     scene.add(player);
 
-    // Three.js resmi deposundaki açık kaynaklı hazır 3D robot/insan modeli linki
     const modelUrl = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/RobotExpressive/RobotExpressive.glb';
 
     loader.load(modelUrl, function (gltf) {
         const model = gltf.scene;
         
-        // Model boyutunu ve yönünü ayarlıyoruz
         model.scale.set(0.4, 0.4, 0.4); 
         model.position.set(0, -0.9, 0); 
-        model.rotation.y = Math.PI; // İleri doğru bakması için döndürdük
+        model.rotation.y = Math.PI; // İleri doğru baksın
         
         model.traverse(function (node) {
             if (node.isMesh) {
@@ -102,10 +105,26 @@ function loadOnline3DCharacter() {
 
         // Modeli ana oyuncu nesnesine ekle
         player.add(model);
-        console.log("Online 3D Karakter Başarıyla Bağlandı!");
+
+        // --- ANIMASYON MOTORUNU AKTIF ETME ---
+        mixer = new THREE.AnimationMixer(model);
+        
+        // Modelin içindeki hazır animasyonları isimlerine göre buluyoruz
+        const clips = gltf.animations;
+        const runningClip = THREE.AnimationClip.findByName(clips, 'Running');
+        const jumpClip = THREE.AnimationClip.findByName(clips, 'Jump');
+        const idleClip = THREE.AnimationClip.findByName(clips, 'Idle');
+
+        if (runningClip) runningAction = mixer.clipAction(runningClip);
+        if (jumpClip) jumpingAction = mixer.clipAction(jumpClip);
+        if (idleClip) idleAction = mixer.clipAction(idleClip);
+
+        // Oyuna koşarak başlasın
+        if (runningAction) runningAction.play();
+
+        console.log("Animasyonlu 3D Karakter Başarıyla Bağlandı!");
     }, undefined, function (error) {
-        console.error("Model internetten çekilemedi, küp moduna dönülüyor:", error);
-        // İnternet kesilirse veya link patlarsa yeşil küp devreye girer oyun çökmez
+        console.error("Model yüklenemedi, küp moduna dönülüyor:", error);
         player.material.visible = true;
         player.material.color.setHex(0x2ed573);
     });
@@ -130,7 +149,7 @@ function createSubwayTracks() {
     }
 }
 
-// --- ENGEL ÜRETİCİ (TRENLER VE BARİYERLER) ---
+// --- ENGEL ÜRETİCİ ---
 function spawnObstacle() {
     if (!gameActive) return;
 
@@ -167,8 +186,11 @@ function handleKeyDown(e) {
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
         moveRight();
     }
-    if ((e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W')) {
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
         jump();
+    }
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        duck(); // Aşağı basınca eğilme tetiklensin
     }
 }
 
@@ -196,12 +218,14 @@ function handleSwipe() {
         }
     } else {
         if (diffY < -50) {
-            jump(); 
+            jump(); // Yukarı kaydırınca zıpla
+        } else if (diffY > 50) {
+            duck(); // Aşağı kaydırınca eğil/hızlıca yere in
         }
     }
 }
 
-// --- HAREKET FONKSİYONLARI ---
+// --- HAREKET VE MEKANİK FONKSİYONLARI ---
 function moveLeft() {
     if (currentLane > 0) {
         currentLane--;
@@ -220,6 +244,28 @@ function jump() {
     if (!isJumping) {
         isJumping = true;
         jumpVelocity = initialJumpForce;
+        
+        // Zıplama animasyonuna geçiş yap
+        if (runningAction && jumpingAction) {
+            runningAction.stop();
+            jumpingAction.reset().play();
+        }
+    }
+}
+
+// Aşağı Kaydırma / Eğilme Mekaniği
+function duck() {
+    if (isJumping) {
+        // Eğer havadaysak, hızla yere çakılmasını sağla (Subway mekaniği)
+        jumpVelocity = -0.2;
+    } else {
+        // Yerdeysek, karakterin boyunu geçici olarak kısaltıp eğilme efekti veriyoruz
+        if (player) {
+            player.scale.y = 0.5; // Karakteri yassılaştır
+            setTimeout(() => {
+                if (player) player.scale.y = 1.0; // 0.5 saniye sonra eski haline döndür
+            }, 500);
+        }
     }
 }
 
@@ -228,6 +274,10 @@ function animate() {
     if (gameActive) {
         requestAnimationFrame(animate);
     }
+
+    // Delta zamanını alarak animasyonları güncelle
+    const delta = clock.getDelta();
+    if (mixer) mixer.update(delta);
 
     if (player) {
         // Yumuşak Şerit Geçişi (Lerp)
@@ -242,6 +292,12 @@ function animate() {
                 player.position.y = 0.9;
                 isJumping = false;
                 jumpVelocity = 0;
+                
+                // Yere basınca tekrar koşma animasyonuna dön
+                if (jumpingAction && runningAction) {
+                    jumpingAction.stop();
+                    runningAction.reset().play();
+                }
             }
         }
     }
@@ -270,7 +326,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// --- BASİT 3D ÇARPIŞMA SİSTEMİ ---
+// --- ÇARPIŞMA SİSTEMİ ---
 function checkCollision(obj1, obj2) {
     const box1 = new THREE.Box3().setFromObject(obj1);
     const box2 = new THREE.Box3().setFromObject(obj2);
@@ -280,18 +336,25 @@ function checkCollision(obj1, obj2) {
 // --- OYUN BİTTİ EKRANI ---
 function gameOver() {
     gameActive = false;
+    if (runningAction) runningAction.stop();
+    if (jumpingAction) jumpingAction.stop();
+    if (idleAction) idleAction.play(); // Yanınca üzgün/sabit dursun
+    
     document.getElementById('final-score').innerText = score;
     document.getElementById('game-over-screen').style.display = 'block';
 }
 
-// --- OYUNU SIFIRLA / YENİDEN BAŞLA ---
+// --- OYUNU SIFIRLA ---
 function resetGame() {
     obstacles.forEach(obs => scene.remove(obs));
     obstacles = [];
     
     currentLane = 1;
     targetX = lanes[currentLane];
-    if (player) player.position.set(0, 0.9, 0);
+    if (player) {
+        player.position.set(0, 0.9, 0);
+        player.scale.y = 1.0;
+    }
     isJumping = false;
     jumpVelocity = 0;
     score = 0;
@@ -299,6 +362,9 @@ function resetGame() {
 
     document.getElementById('score-val').innerText = score;
     document.getElementById('game-over-screen').style.display = 'none';
+
+    if (idleAction) idleAction.stop();
+    if (runningAction) runningAction.reset().play();
 
     gameActive = true;
     animate();
