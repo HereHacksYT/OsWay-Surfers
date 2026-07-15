@@ -54,8 +54,28 @@ let touchStartY = 0;
 let touchEndX = 0;
 let touchEndY = 0;
 
+// --- VERİ KAYIT SİSTEMİ ---
+function saveGame() {
+    const data = {
+        gold: totalGold,
+        boards: skateboardStock
+    };
+    localStorage.setItem('osWaySaveData', JSON.stringify(data));
+}
+
+function loadGame() {
+    const savedData = localStorage.getItem('osWaySaveData');
+    if (savedData) {
+        const data = JSON.parse(savedData);
+        totalGold = data.gold || 0;
+        skateboardStock = data.boards || 0;
+    }
+}
+
 // --- BAŞLANGIÇ ---
 function init() {
+    loadGame(); // Kayıtlı veriyi yükle
+    
     const container = document.getElementById('canvas-container');
     
     scene = new THREE.Scene();
@@ -111,6 +131,7 @@ function buyOneBoard() {
     if (totalGold >= 5) {
         totalGold -= 5;
         skateboardStock += 1;
+        saveGame(); // HER İŞLEMDE KAYDET
         updateMarketUI();
     } else {
         alert("Yeterli altının yok! 1 Kaykay = 5 Altın.");
@@ -122,6 +143,7 @@ function buyBoardsWithAllGold() {
         let boardsToBuy = Math.floor(totalGold / 5); 
         totalGold = totalGold % 5; 
         skateboardStock += boardsToBuy;
+        saveGame(); // HER İŞLEMDE KAYDET
         updateMarketUI();
     } else {
         alert("Yeterli altının yok! Bir kaykay 5 Altın.");
@@ -295,7 +317,6 @@ function spawnObstacle() {
         obstacleGroup.userData = { type: 'barrier', heightLimit: 1.1 };
     }
 
-    // İstediğin yakın doğma mesafesi (-60)
     obstacleGroup.position.set(lanes[laneIndex], 0, -60);
     scene.add(obstacleGroup);
     obstacles.push(obstacleGroup);
@@ -321,7 +342,6 @@ function spawnCoin() {
     coin.rotation.x = Math.PI / 2; 
     coin.castShadow = true;
     
-    // Altınların geliş mesafesi de engellerle senkronize edildi (-60)
     coin.position.set(lanes[laneIndex], height, -60);
 
     scene.add(coin);
@@ -413,6 +433,7 @@ function deploySkateboard() {
     if (skateboardStock <= 0) return;
 
     skateboardStock--;
+    saveGame(); // KAYKAY KULLANILDIĞINDA KAYDET
     document.getElementById('board-val').innerText = skateboardStock;
 
     hasSkateboard = true;
@@ -543,14 +564,11 @@ function animate() {
     const delta = clock.getDelta();
 
     // DELTA TIME (ZAMAN ÖLÇEĞİ) NORMALLEŞTİRME
-    // 60 FPS standardını (0.01667s) 1.0 kabul edip tüm hareketleri bu orana çarpan yapıyoruz.
-    // Math.min ekleyerek arka sekmeye geçildiğindeki aşırı FPS düşüşlerinde bugları önlüyoruz.
     const timeScale = Math.min(delta / 0.01667, 4.0); 
 
     if (mixer && !hasSkateboard) mixer.update(delta);
 
     if (player) {
-        // Yumuşak geçiş hızı (lerp) cihaz FPS'inden arındırıldı
         player.position.x += (targetX - player.position.x) * 0.22 * timeScale;
         player.position.y += jumpVelocity * timeScale;
         
@@ -577,7 +595,7 @@ function animate() {
     // --- ENGELLER DÖNGÜSÜ ---
     for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
-        obs.position.z += speed * timeScale; // Hız timeScale ile çarpıldı
+        obs.position.z += speed * timeScale;
 
         if (player) {
             const pBox = new THREE.Box3().setFromObject(player);
@@ -615,7 +633,7 @@ function animate() {
     // --- ÖZELLİKLER (POWER-UPS) AKTİF DÖNGÜSÜ ---
     for (let i = powerUps.length - 1; i >= 0; i--) {
         const pUp = powerUps[i];
-        pUp.position.z += speed * timeScale; // Hız timeScale ile çarpıldı
+        pUp.position.z += speed * timeScale;
         pUp.rotation.y += 0.04 * timeScale;
 
         if (player) {
@@ -643,7 +661,6 @@ function animate() {
         const coin = coins[i];
         
         if (isMagnetActive && player && coin.position.z < 10) {
-            // Mıknatısın çekim gücü de timeScale ile dengelendi
             coin.position.x += (player.position.x - coin.position.x) * 0.18 * timeScale;
             coin.position.y += (player.position.y - coin.position.y) * 0.18 * timeScale;
             coin.position.z += (player.position.z - coin.position.z) * 0.18 * timeScale;
@@ -658,7 +675,8 @@ function animate() {
             const cBox = new THREE.Box3().setFromObject(coin);
 
             if (pBox.intersectsBox(cBox)) {
-                totalGold += 1; 
+                totalGold += 1;
+                saveGame(); // ALTIN TOPLANDIĞINDA KAYDET
                 document.getElementById('gold-val').innerText = totalGold;
                 scene.remove(coin);
                 coins.splice(i, 1);
@@ -683,6 +701,7 @@ function animate() {
 // --- OYUN BİTTİ ---
 function gameOver() {
     gameActive = false;
+    saveGame(); // OYUN BİTTİĞİNDE KAYDET
     clearInterval(skateboardInterval);
     clearInterval(magnetInterval);
     clearInterval(doubleScoreInterval);
