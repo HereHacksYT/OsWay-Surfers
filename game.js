@@ -11,7 +11,7 @@ let lastSpeedMilestone = 0;
 let lastPowerUpMilestone = 0; // En son hangi 200 puanda özellik doğduğunu izler
 let gameActive = false; 
 
-// Hız Ayarları
+// Hız Ayarları (60 FPS standart baz alınarak ayarlandı)
 let speed = 0.40; 
 const maxSpeed = 2.2; 
 
@@ -295,7 +295,7 @@ function spawnObstacle() {
         obstacleGroup.userData = { type: 'barrier', heightLimit: 1.1 };
     }
 
-    // YENİ İSTEDİĞİN DİNAMİK YAKIN SPAWN MESAFESİ (-60)
+    // İstediğin yakın doğma mesafesi (-60)
     obstacleGroup.position.set(lanes[laneIndex], 0, -60);
     scene.add(obstacleGroup);
     obstacles.push(obstacleGroup);
@@ -333,7 +333,7 @@ function spawnPowerUp() {
     if (!gameActive) return;
 
     const laneIndex = Math.floor(Math.random() * 3);
-    const isHigh = Math.random() > 0.5; // Yerde mi tren üstünde mi rastgele seçer
+    const isHigh = Math.random() > 0.5; 
     const height = isHigh ? 4.0 : 1.2;
 
     const types = ['magnet', 'doubleScore'];
@@ -341,7 +341,6 @@ function spawnPowerUp() {
     const pGroup = new THREE.Group();
 
     if (selectedType === 'magnet') {
-        // Kırmızı U şeklinde Mıknatıs Modeli
         const magMat = new THREE.MeshStandardMaterial({ color: 0xff4757, metalness: 0.5 });
         const leftBar = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.8, 0.2), magMat);
         leftBar.position.x = -0.3;
@@ -352,7 +351,6 @@ function spawnPowerUp() {
 
         pGroup.add(leftBar, rightBar, bottomBar);
     } else {
-        // Parıldayan Büyük Yıldız Modeli (2 Kat Puan)
         const starMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 0.6 });
         const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.2), starMat);
         const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.2), starMat);
@@ -419,7 +417,7 @@ function deploySkateboard() {
 
     hasSkateboard = true;
     skateboardTimer = 15; 
-    document.getElementById('board-timer').innerText = ` McKaykay: ${skateboardTimer}s`;
+    document.getElementById('board-timer').innerText = `🛹 Kaykay: ${skateboardTimer}s`;
     document.getElementById('board-timer').style.display = 'block';
 
     const skateboardGroup = new THREE.Group();
@@ -543,20 +541,33 @@ function animate() {
     }
 
     const delta = clock.getDelta();
+
+    // DELTA TIME (ZAMAN ÖLÇEĞİ) NORMALLEŞTİRME
+    // 60 FPS standardını (0.01667s) 1.0 kabul edip tüm hareketleri bu orana çarpan yapıyoruz.
+    // Math.min ekleyerek arka sekmeye geçildiğindeki aşırı FPS düşüşlerinde bugları önlüyoruz.
+    const timeScale = Math.min(delta / 0.01667, 4.0); 
+
     if (mixer && !hasSkateboard) mixer.update(delta);
 
     if (player) {
-        player.position.x += (targetX - player.position.x) * 0.22;
-        player.position.y += jumpVelocity;
+        // Yumuşak geçiş hızı (lerp) cihaz FPS'inden arındırıldı
+        player.position.x += (targetX - player.position.x) * 0.22 * timeScale;
+        player.position.y += jumpVelocity * timeScale;
         
-        if (player.position.y > baseFloorY || isJumping) jumpVelocity -= gravity;
+        if (player.position.y > baseFloorY || isJumping) {
+            jumpVelocity -= gravity * timeScale;
+        }
 
         if (player.position.y <= baseFloorY && !isJumping) {
-            player.position.y = baseFloorY; jumpVelocity = 0;
+            player.position.y = baseFloorY; 
+            jumpVelocity = 0;
         } else if (player.position.y <= baseFloorY && isJumping) {
-            player.position.y = baseFloorY; isJumping = false; jumpVelocity = 0;
+            player.position.y = baseFloorY; 
+            isJumping = false; 
+            jumpVelocity = 0;
             if (!hasSkateboard && jumpingAction && runningAction) {
-                jumpingAction.stop(); runningAction.reset().play();
+                jumpingAction.stop(); 
+                runningAction.reset().play();
             }
         }
     }
@@ -566,7 +577,7 @@ function animate() {
     // --- ENGELLER DÖNGÜSÜ ---
     for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
-        obs.position.z += speed; 
+        obs.position.z += speed * timeScale; // Hız timeScale ile çarpıldı
 
         if (player) {
             const pBox = new THREE.Box3().setFromObject(player);
@@ -586,17 +597,14 @@ function animate() {
         if (obs.position.z > 15) {
             scene.remove(obs); obstacles.splice(i, 1);
             
-            // SKOR HESAPLAMA (2 Kat Puan özelliği aktifse 2 katı eklenir!)
             score += isDoubleScoreActive ? 20 : 10;
             document.getElementById('score-val').innerText = score;
 
-            // Her 200 Puanda Bir Özellik Doğurma Tetikleyicisi
             if (score > 0 && Math.floor(score / 200) > Math.floor(lastPowerUpMilestone / 200)) {
                 lastPowerUpMilestone = score;
                 spawnPowerUp();
             }
 
-            // Hızlanma Sistemi
             if (score > 0 && score % 100 === 0 && score !== lastSpeedMilestone) {
                 lastSpeedMilestone = score; 
                 if (speed < maxSpeed) speed = speed * 1.10; 
@@ -607,8 +615,8 @@ function animate() {
     // --- ÖZELLİKLER (POWER-UPS) AKTİF DÖNGÜSÜ ---
     for (let i = powerUps.length - 1; i >= 0; i--) {
         const pUp = powerUps[i];
-        pUp.position.z += speed;
-        pUp.rotation.y += 0.04; // Kendi ekseninde dönsün
+        pUp.position.z += speed * timeScale; // Hız timeScale ile çarpıldı
+        pUp.rotation.y += 0.04 * timeScale;
 
         if (player) {
             const pBox = new THREE.Box3().setFromObject(player);
@@ -634,17 +642,16 @@ function animate() {
     for (let i = coins.length - 1; i >= 0; i--) {
         const coin = coins[i];
         
-        // MIKNATIS AKTİFSE: Menzile bakmaksızın tüm altınları player üzerine çeker!
         if (isMagnetActive && player && coin.position.z < 10) {
-            // Yumuşakça oyuncunun merkez noktasına lerp (çekilme) uygula
-            coin.position.x += (player.position.x - coin.position.x) * 0.18;
-            coin.position.y += (player.position.y - coin.position.y) * 0.18;
-            coin.position.z += (player.position.z - coin.position.z) * 0.18;
+            // Mıknatısın çekim gücü de timeScale ile dengelendi
+            coin.position.x += (player.position.x - coin.position.x) * 0.18 * timeScale;
+            coin.position.y += (player.position.y - coin.position.y) * 0.18 * timeScale;
+            coin.position.z += (player.position.z - coin.position.z) * 0.18 * timeScale;
         } else {
-            coin.position.z += speed; 
+            coin.position.z += speed * timeScale; 
         }
         
-        coin.rotation.z += 0.05; 
+        coin.rotation.z += 0.05 * timeScale; 
 
         if (player) {
             const pBox = new THREE.Box3().setFromObject(player);
