@@ -39,6 +39,7 @@
         }
         #gold-ui { color: #ffd700; }
         #board-ui { color: #2ed573; }
+        #mode-ui { color: #ff4757; font-size: 18px; }
         
         /* Sağ Üst Süre Paneli */
         #timer-panel {
@@ -87,6 +88,17 @@
             color: #2ed573;
             text-shadow: 2px 2px 0px #fff;
         }
+        
+        /* Hard Mode Menü Paneli */
+        #hard-mode-select {
+            display: none;
+            margin-top: 15px;
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px dashed #ff4757;
+        }
+
         /* Market Ekranı */
         #market-screen {
             position: absolute;
@@ -116,7 +128,7 @@
             margin: 15px 0;
             font-size: 18px;
         }
-        .market-btn-row {
+        .market-btn-row, .hard-btn-row {
             display: flex;
             gap: 10px;
             margin-top: 10px;
@@ -183,12 +195,12 @@
             background-color: #ff4757;
             border: none;
             color: white;
-            padding: 12px 30px;
-            font-size: 18px;
+            padding: 12px 20px;
+            font-size: 16px;
             font-weight: bold;
             border-radius: 8px;
             cursor: pointer;
-            margin-top: 15px;
+            margin-top: 10px;
             transition: 0.2s;
             width: 100%;
             box-shadow: 0 4px 0px #d43f4c;
@@ -196,6 +208,23 @@
         .btn-red:active {
             transform: translateY(3px);
             box-shadow: 0 1px 0px #d43f4c;
+        }
+        .btn-purple {
+            background-color: #70a1ff;
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            width: 100%;
+            box-shadow: 0 4px 0px #1e90ff;
+        }
+        .btn-purple:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0px #1e90ff;
         }
         .btn-full {
             padding: 15px 40px;
@@ -217,8 +246,20 @@
             <div id="menu-boards">Kaykayın: 🛹 0 adet</div>
         </div>
 
-        <button class="btn-green btn-full" onclick="startGame()">BAŞLA</button>
-        <button class="btn-yellow btn-full" onclick="openMarket()">🛒 MARKET</button>
+        <button class="btn-green btn-full" onclick="startGame(false, false)">BAŞLA</button>
+        
+        <button class="btn-red" style="font-size:16px; padding: 12px 10px;" onclick="toggleHardModeMenu()">
+            🔥 Çok Zor Mod (10 kat zor ve 5 kat altın)
+        </button>
+
+        <div id="hard-mode-select">
+            <div class="hard-btn-row">
+                <button class="btn-green" style="font-size:14px; padding:10px;" onclick="startGame(true, false)">Kendin Oyna</button>
+                <button class="btn-purple" style="font-size:14px; padding:10px;" onclick="startGame(true, true)">Bota Oynat (Ödül yok)</button>
+            </div>
+        </div>
+
+        <button class="btn-yellow btn-full" style="margin-top:15px;" onclick="openMarket()">🛒 MARKET</button>
         
         <p style="font-size:12px; color:#aaa; margin-top:15px;">Çift Tıkla veya Boşluk Tuşu ile Kaykay Açılır!</p>
     </div>
@@ -244,6 +285,7 @@
         <div class="ui-item">Skor: <span id="score-val">0</span></div>
         <div id="gold-ui" class="ui-item">Altın: 🌟 <span id="gold-val">0</span></div>
         <div id="board-ui" class="ui-item">Kaykay: 🛹 <span id="board-val">0</span></div>
+        <div id="mode-ui" class="ui-item"></div>
     </div>
 
     <div id="timer-panel">
