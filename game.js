@@ -3,21 +3,21 @@ let scene, camera, renderer;
 let player; 
 let obstacles = [];
 let coins = []; 
-let powerUps = []; 
+let powerUps = []; // Özellikleri tutan dizi
 let score = 0;
 let totalGold = 0; 
 let skateboardStock = 0; 
 let lastSpeedMilestone = 0; 
-let lastPowerUpMilestone = 0; 
+let lastPowerUpMilestone = 0; // En son hangi 200 puanda özellik doğduğunu izler
 let gameActive = false; 
 
 // Zor Mod ve Bot Değişkenleri
 let isHardMode = false;
 let isBotMode = false;
 let goldMultiplier = 1;
+let obstacleIntervalId = null;
 
-// Hız Ayarları
-let baseSpeed = 0.40;
+// Hız Ayarları (60 FPS standart baz alınarak ayarlandı)
 let speed = 0.40; 
 let maxSpeed = 2.2; 
 
@@ -80,7 +80,7 @@ function loadGame() {
 
 // --- BAŞLANGIÇ ---
 function init() {
-    loadGame(); 
+    loadGame(); // Kayıtlı veriyi yükle
     
     const container = document.getElementById('canvas-container');
     
@@ -113,7 +113,6 @@ function init() {
     window.addEventListener('touchend', handleTouchEnd, false);
     window.addEventListener('resize', onWindowResize);
 
-    setInterval(spawnObstacle, 1100); 
     setInterval(spawnCoin, 800); 
 
     updateMenuUI();
@@ -142,7 +141,7 @@ function buyOneBoard() {
     if (totalGold >= 5) {
         totalGold -= 5;
         skateboardStock += 1;
-        saveGame(); 
+        saveGame(); // HER İŞLEMDE KAYDET
         updateMarketUI();
     } else {
         alert("Yeterli altının yok! 1 Kaykay = 5 Altın.");
@@ -154,7 +153,7 @@ function buyBoardsWithAllGold() {
         let boardsToBuy = Math.floor(totalGold / 5); 
         totalGold = totalGold % 5; 
         skateboardStock += boardsToBuy;
-        saveGame(); 
+        saveGame(); // HER İŞLEMDE KAYDET
         updateMarketUI();
     } else {
         alert("Yeterli altının yok! Bir kaykay 5 Altın.");
@@ -177,9 +176,9 @@ function startGame(hardMode = false, botMode = false) {
     isBotMode = botMode;
 
     if (isHardMode) {
-        speed = 2.0; // 10 kat daha hızlı başlangıç
-        maxSpeed = 5.0;
-        goldMultiplier = 5; // 5 Kat Altın Kazanımı
+        speed = 1.8; // Çok Hızlı
+        maxSpeed = 4.5;
+        goldMultiplier = 5; // 5 Kat Altın
     } else {
         speed = 0.40;
         maxSpeed = 2.2;
@@ -190,7 +189,7 @@ function startGame(hardMode = false, botMode = false) {
     if (isBotMode) {
         modeUI.innerText = "🤖 BOT MODU (Ödül Yok)";
     } else if (isHardMode) {
-        modeUI.innerText = "🔥 ÇOK ZOR MOD (5x Altın)";
+        modeUI.innerText = "🔥 ÇOK ZOR MOD (3x Engel & 5x Altın)";
     } else {
         modeUI.innerText = "";
     }
@@ -201,6 +200,11 @@ function startGame(hardMode = false, botMode = false) {
     
     document.getElementById('gold-val').innerText = totalGold;
     document.getElementById('board-val').innerText = skateboardStock;
+
+    // Engel Süre Aralığını Ayarla (Zor Modda 3 kat daha sık = ~370ms, Normalde 1100ms)
+    clearInterval(obstacleIntervalId);
+    let obsTime = isHardMode ? 370 : 1100;
+    obstacleIntervalId = setInterval(spawnObstacle, obsTime);
 
     gameActive = true;
     if (idleAction) idleAction.stop();
@@ -285,7 +289,7 @@ function createSubwayTracks() {
     }
 }
 
-// --- ENGELLER VE ALTIN SPAWN İŞLEMLERİ ---
+// --- DETAYLI VE KALİTELİ 3D ENGELLER ---
 function spawnObstacle() {
     if (!gameActive) return;
 
@@ -294,6 +298,7 @@ function spawnObstacle() {
     const obstacleGroup = new THREE.Group();
 
     if (obstacleType === 'train') {
+        // Tren Gövdesi
         const bodyGeo = new THREE.BoxGeometry(1.9, 2.7, 12);
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3c6382, metalness: 0.6, roughness: 0.2 });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
@@ -301,13 +306,56 @@ function spawnObstacle() {
         body.castShadow = true;
         obstacleGroup.add(body);
 
+        // Ön Cam Detayı
+        const windowGeo = new THREE.BoxGeometry(1.7, 1.2, 0.1);
+        const windowMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.1 });
+        const frontWindow = new THREE.Mesh(windowGeo, windowMat);
+        frontWindow.position.set(0, 1.8, 6.01);
+        obstacleGroup.add(frontWindow);
+
+        // Farlar
+        const headlightGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.2, 16);
+        const headlightMat = new THREE.MeshBasicMaterial({ color: 0xfff200 });
+        
+        const leftLight = new THREE.Mesh(headlightGeo, headlightMat);
+        leftLight.rotation.x = Math.PI / 2;
+        leftLight.position.set(-0.6, 0.6, 6.01);
+        obstacleGroup.add(leftLight);
+
+        const rightLight = new THREE.Mesh(headlightGeo, headlightMat);
+        rightLight.rotation.x = Math.PI / 2;
+        rightLight.position.set(0.6, 0.6, 6.01);
+        obstacleGroup.add(rightLight);
+
         obstacleGroup.userData = { type: 'train', heightLimit: 2.7 };
     } else {
+        // Bariyer Ana Çıta
         const barGeo = new THREE.BoxGeometry(2.2, 0.25, 0.25);
         const barMat = new THREE.MeshStandardMaterial({ color: 0xf5cd79 });
         const bar = new THREE.Mesh(barGeo, barMat);
         bar.position.y = 0.95;
         obstacleGroup.add(bar);
+
+        // Bariyer Siyah Şerit Detayları
+        const stripeGeo = new THREE.BoxGeometry(0.3, 0.27, 0.27);
+        const stripeMat = new THREE.MeshStandardMaterial({ color: 0x1e272e });
+        for (let i = -0.8; i <= 0.8; i += 0.4) {
+            const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+            stripe.position.set(i, 0.95, 0);
+            obstacleGroup.add(stripe);
+        }
+
+        // Bariyer Metal Ayakları
+        const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.0, 8);
+        const legMat = new THREE.MeshStandardMaterial({ color: 0x57606f, metalness: 0.7 });
+        
+        const leftLeg = new THREE.Mesh(legGeo, legMat);
+        leftLeg.position.set(-1.0, 0.5, 0);
+        obstacleGroup.add(leftLeg);
+
+        const rightLeg = new THREE.Mesh(legGeo, legMat);
+        rightLeg.position.set(1.0, 0.5, 0);
+        obstacleGroup.add(rightLeg);
 
         obstacleGroup.userData = { type: 'barrier', heightLimit: 1.1 };
     }
@@ -317,6 +365,7 @@ function spawnObstacle() {
     obstacles.push(obstacleGroup);
 }
 
+// --- 3D ALTIN (COIN) SİSTEMİ ---
 function spawnCoin() {
     if (!gameActive) return;
 
@@ -328,34 +377,49 @@ function spawnCoin() {
     const coinMat = new THREE.MeshStandardMaterial({ 
         color: 0xffd700, 
         metalness: 0.9, 
+        roughness: 0.1,
         emissive: 0xffb300,
         emissiveIntensity: 0.3
     });
     const coin = new THREE.Mesh(coinGeo, coinMat);
     coin.rotation.x = Math.PI / 2; 
+    coin.castShadow = true;
+    
     coin.position.set(lanes[laneIndex], height, -60);
 
     scene.add(coin);
     coins.push(coin);
 }
 
+// --- HER 200 PUANDA BİR ÖZELLİK (POWER-UP) SPAWN ETME ---
 function spawnPowerUp() {
     if (!gameActive) return;
 
     const laneIndex = Math.floor(Math.random() * 3);
-    const height = Math.random() > 0.5 ? 4.0 : 1.2;
+    const isHigh = Math.random() > 0.5; 
+    const height = isHigh ? 4.0 : 1.2;
+
     const types = ['magnet', 'doubleScore'];
     const selectedType = types[Math.floor(Math.random() * types.length)];
     const pGroup = new THREE.Group();
 
     if (selectedType === 'magnet') {
-        const magMat = new THREE.MeshStandardMaterial({ color: 0xff4757 });
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.2), magMat);
-        pGroup.add(bar);
+        const magMat = new THREE.MeshStandardMaterial({ color: 0xff4757, metalness: 0.5 });
+        const leftBar = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.8, 0.2), magMat);
+        leftBar.position.x = -0.3;
+        const rightBar = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.8, 0.2), magMat);
+        rightBar.position.x = 0.3;
+        const bottomBar = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.2), magMat);
+        bottomBar.position.y = -0.3;
+
+        pGroup.add(leftBar, rightBar, bottomBar);
     } else {
-        const starMat = new THREE.MeshStandardMaterial({ color: 0xffd700 });
+        const starMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 0.6 });
         const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.2), starMat);
-        pGroup.add(b1);
+        const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.2), starMat);
+        b2.rotation.z = Math.PI / 4;
+
+        pGroup.add(b1, b2);
     }
 
     pGroup.position.set(lanes[laneIndex], height, -60);
@@ -365,6 +429,7 @@ function spawnPowerUp() {
     powerUps.push(pGroup);
 }
 
+// --- MIKNATIS (MAGNET) TETİKLEME ---
 function activateMagnet() {
     isMagnetActive = true;
     magnetTimer = 10;
@@ -384,6 +449,7 @@ function activateMagnet() {
     }, 1000);
 }
 
+// --- 2 KAT PUAN TETİKLEME ---
 function activateDoubleScore() {
     isDoubleScoreActive = true;
     doubleScoreTimer = 10;
@@ -403,6 +469,7 @@ function activateDoubleScore() {
     }, 1000);
 }
 
+// --- KAYKAY TETİKLEME ---
 function deploySkateboard() {
     if (hasSkateboard || !gameActive || !player || isBotMode) return;
     if (skateboardStock <= 0) return;
@@ -418,8 +485,14 @@ function deploySkateboard() {
 
     const skateboardGroup = new THREE.Group();
     const woodMat = new THREE.MeshStandardMaterial({ color: 0xcd853f });
+    const gripTapeMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
+
     const boardBase = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 2.2), woodMat);
     skateboardGroup.add(boardBase);
+
+    const gripTape = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.02, 2.16), gripTapeMat);
+    gripTape.position.y = 0.05; 
+    skateboardGroup.add(gripTape);
 
     skateboardMesh = skateboardGroup;
     skateboardMesh.position.set(0, -0.82, 0); 
@@ -458,14 +531,13 @@ function destroySkateboard() {
     isJumping = true;
 }
 
-// --- BOT YAPAY ZEKASI (ÖNCELİK ARAMA MANTIĞI) ---
+// --- BOT YAPAY ZEKASI (MÜKEMMEL REFLEKS) ---
 function updateBotAI() {
     if (!isBotMode || !gameActive || !player) return;
 
     let nearestObstacle = null;
     let minObsDistance = 999;
 
-    // Yakındaki engeli tespit et
     for (let obs of obstacles) {
         let dist = player.position.z - obs.position.z;
         if (dist > 0 && dist < minObsDistance) {
@@ -474,16 +546,13 @@ function updateBotAI() {
         }
     }
 
-    // Engeli atlat
-    if (nearestObstacle && minObsDistance < (speed * 25)) {
+    if (nearestObstacle && minObsDistance < (speed * 28)) {
         let obsLane = lanes.indexOf(nearestObstacle.position.x);
         
         if (obsLane === currentLane) {
-            // Engel önümüzdeki şeritte
             if (nearestObstacle.userData.type === 'barrier') {
                 jump();
             } else {
-                // Tren geliyor, güvenli şerit bul
                 if (currentLane === 1) {
                     if (Math.random() > 0.5) moveLeft(); else moveRight();
                 } else if (currentLane === 0) {
@@ -494,7 +563,6 @@ function updateBotAI() {
             }
         }
     } else {
-        // Önümüz boşsa en yakın altını kapmaya çalış
         let nearestCoin = null;
         let minCoinDist = 999;
 
@@ -506,7 +574,7 @@ function updateBotAI() {
             }
         }
 
-        if (nearestCoin && minCoinDist < 20) {
+        if (nearestCoin && minCoinDist < 25) {
             let coinLane = lanes.indexOf(nearestCoin.position.x);
             if (coinLane < currentLane) moveLeft();
             else if (coinLane > currentLane) moveRight();
@@ -578,7 +646,11 @@ function duck() {
     if (isJumping) { jumpVelocity = -0.25; }
     else if (baseFloorY === 0.9 && player) { 
         player.scale.y = 0.5;
-        setTimeout(() => { if (player) player.scale.y = 1.0; }, 500);
+        if (skateboardMesh) skateboardMesh.scale.y = 2.0; 
+        setTimeout(() => { 
+            if (player) player.scale.y = 1.0; 
+            if (skateboardMesh) skateboardMesh.scale.y = 1.0;
+        }, 500);
     }
 }
 
@@ -661,6 +733,7 @@ function animate() {
     for (let i = powerUps.length - 1; i >= 0; i--) {
         const pUp = powerUps[i];
         pUp.position.z += speed * timeScale;
+        pUp.rotation.y += 0.04 * timeScale;
 
         if (player) {
             const pBox = new THREE.Box3().setFromObject(player);
@@ -682,7 +755,7 @@ function animate() {
         }
     }
 
-    // --- ALTINLAR DÖNGÜSÜ ---
+    // --- ALTINLAR DÖNGÜSÜ (MIKNATIS DAHİL) ---
     for (let i = coins.length - 1; i >= 0; i--) {
         const coin = coins[i];
         
@@ -693,13 +766,14 @@ function animate() {
         } else {
             coin.position.z += speed * timeScale; 
         }
+        
+        coin.rotation.z += 0.05 * timeScale; 
 
         if (player) {
             const pBox = new THREE.Box3().setFromObject(player);
             const cBox = new THREE.Box3().setFromObject(coin);
 
             if (pBox.intersectsBox(cBox)) {
-                // Sadece Bot Modunda değilse altın kaydını hesaba işle
                 if (!isBotMode) {
                     totalGold += (1 * goldMultiplier);
                     saveGame(); 
@@ -729,6 +803,7 @@ function animate() {
 function gameOver() {
     gameActive = false;
     saveGame(); 
+    clearInterval(obstacleIntervalId);
     clearInterval(skateboardInterval);
     clearInterval(magnetInterval);
     clearInterval(doubleScoreInterval);
