@@ -175,10 +175,14 @@ function updateMarketUI() {
 // --- OYUNU BAŞLATMA ---
 function startGame(hardMode = false, botMode = false, videoMode = false) {
     isHardMode = hardMode;
-    isBotMode = botMode;
+    isBotMode = botMode || videoMode; // Video modu otomatik olarak bot modudur
     isVideoMode = videoMode;
 
-    if (isHardMode) {
+    if (isVideoMode) {
+        speed = 0.85; // Video modunda daha yüksek ve akıcı bir başlangıç hızı
+        maxSpeed = 3.0;
+        goldMultiplier = 1;
+    } else if (isHardMode) {
         speed = 1.8; 
         maxSpeed = 4.5;
         goldMultiplier = 5; 
@@ -194,7 +198,7 @@ function startGame(hardMode = false, botMode = false, videoMode = false) {
     const scoreUI = document.getElementById('score-ui');
 
     if (isVideoMode) {
-        // VİDEO ÇEKME MODUNDA TÜM YAZI VE ARAYÜZLERİ GİZLE (SİNEMATİK)
+        // VİDEO ÇEKME MODUNDA TÜM YAZI VE ARAYÜZLERİ GİZLE (SİNEMATİK KUSURSUZ GÖRÜNÜM)
         document.getElementById('ui').style.display = 'none';
         goldUI.style.display = 'none';
         boardUI.style.display = 'none';
@@ -223,7 +227,7 @@ function startGame(hardMode = false, botMode = false, videoMode = false) {
     document.getElementById('board-val').innerText = skateboardStock;
 
     clearInterval(obstacleIntervalId);
-    let obsTime = isHardMode ? 370 : 1100;
+    let obsTime = isHardMode ? 370 : (isVideoMode ? 600 : 1100);
     obstacleIntervalId = setInterval(spawnObstacle, obsTime);
 
     gameActive = true;
@@ -549,13 +553,14 @@ function destroySkateboard() {
     isJumping = true;
 }
 
-// --- BOT YAPAY ZEKASI VE VİDEO MODU HAVALI HAREKETLER ---
+// --- SÜPER HIZLI VE KUSURSUZ BOT YAPAY ZEKASI (VİDEO MODU İÇİN) ---
 function updateBotAI() {
     if (!isBotMode || !gameActive || !player) return;
 
     let nearestObstacle = null;
     let minObsDistance = 999;
 
+    // En yakın engeli tespit et
     for (let obs of obstacles) {
         let dist = player.position.z - obs.position.z;
         if (dist > 0 && dist < minObsDistance) {
@@ -564,18 +569,15 @@ function updateBotAI() {
         }
     }
 
-    // VİDEO MODU ÖZEL HAVALI HAREKET LER (TİKTOK / REELS PARKOUR STİLİ)
-    if (isVideoMode) {
-        coolMoveTimer++;
-        if (coolMoveTimer > 15) { 
-            coolMoveTimer = 0;
-
-            // Rastgele akrobatik hareketler yap
-            const rand = Math.random();
-            if (rand < 0.35 && !isJumping) {
-                jump(); // Sık zıplama
-            } else if (rand < 0.65) {
-                // Şerit değiştir (Acrobatic lane-change)
+    // ENGELLERDEN KUSURSUZ VE SÜPER HIZLI KAÇINMA SİSTEMİ
+    if (nearestObstacle && minObsDistance < (speed * 32)) {
+        let obsLane = lanes.indexOf(nearestObstacle.position.x);
+        
+        if (obsLane === currentLane) {
+            if (nearestObstacle.userData.type === 'barrier') {
+                jump();
+            } else {
+                // Tren varsa güvenli olan boş şeride anında geç
                 if (currentLane === 1) {
                     Math.random() > 0.5 ? moveLeft() : moveRight();
                 } else if (currentLane === 0) {
@@ -583,54 +585,35 @@ function updateBotAI() {
                 } else {
                     moveLeft();
                 }
-            } else if (rand < 0.85) {
-                duck(); // Eğilme / Takla
-            }
-
-            // Otomatik Kaykay Kullan
-            if (!hasSkateboard && Math.random() < 0.3) {
-                deploySkateboard();
             }
         }
-    }
+    } 
 
-    // ENGELLERDEN KACINMA SİSTEMİ (ÖNCELİKLİ)
-    if (nearestObstacle && minObsDistance < (speed * 28)) {
-        let obsLane = lanes.indexOf(nearestObstacle.position.x);
-        
-        if (obsLane === currentLane) {
-            if (nearestObstacle.userData.type === 'barrier') {
-                jump();
-            } else {
+    // VİDEO MODU ÖZEL HAVALI HAREKETLER (SERİ, TEMPOLU VE AKROBATİK)
+    if (isVideoMode) {
+        coolMoveTimer++;
+        if (coolMoveTimer > 6) { // Çok daha hızlı aksiyon döngüsü (6 karede bir)
+            coolMoveTimer = 0;
+
+            const rand = Math.random();
+            if (rand < 0.40 && !isJumping) {
+                jump(); // Sık zıplama
+            } else if (rand < 0.75) {
+                // Havalı şerit değiştirme
                 if (currentLane === 1) {
-                    if (Math.random() > 0.5) moveLeft(); else moveRight();
+                    Math.random() > 0.5 ? moveLeft() : moveRight();
                 } else if (currentLane === 0) {
                     moveRight();
                 } else {
                     moveLeft();
                 }
+            } else if (rand < 0.90) {
+                duck(); // Eğilme / Takla hareketi
             }
-        }
-    } else if (!isVideoMode) {
-        // NORMAL BOT İÇİN ALTIN TOPLAMA SİSTEMİ
-        let nearestCoin = null;
-        let minCoinDist = 999;
 
-        for (let coin of coins) {
-            let dist = player.position.z - coin.position.z;
-            if (dist > 0 && dist < minCoinDist) {
-                minCoinDist = dist;
-                nearestCoin = coin;
-            }
-        }
-
-        if (nearestCoin && minCoinDist < 25) {
-            let coinLane = lanes.indexOf(nearestCoin.position.x);
-            if (coinLane < currentLane) moveLeft();
-            else if (coinLane > currentLane) moveRight();
-
-            if (nearestCoin.position.y > 3.0 && coinLane === currentLane) {
-                jump();
+            // Sürekli Kaykay Açma Şovu
+            if (!hasSkateboard && Math.random() < 0.4) {
+                deploySkateboard();
             }
         }
     }
@@ -718,7 +701,9 @@ function animate() {
     if (mixer && !hasSkateboard) mixer.update(delta);
 
     if (player) {
-        player.position.x += (targetX - player.position.x) * 0.22 * timeScale;
+        // Video modunda şerit değiştirme hızını (0.22 -> 0.45) süper seri yaptık
+        let moveSpeed = isVideoMode ? 0.45 : 0.22;
+        player.position.x += (targetX - player.position.x) * moveSpeed * timeScale;
         player.position.y += jumpVelocity * timeScale;
         
         if (player.position.y > baseFloorY || isJumping) {
@@ -741,7 +726,7 @@ function animate() {
 
     let onATrain = false;
 
-    // --- ENGELLER DÖNGÜSÜ ---
+    // --- ENGELLER DÖNGÜSÜ VE ÇARPIŞMA KONTROLÜ ---
     for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
         obs.position.z += speed * timeScale;
@@ -753,6 +738,12 @@ function animate() {
             if (pBox.intersectsBox(oBox)) {
                 if (obs.userData.type === 'train' && (player.position.y - 0.9) >= 2.0) {
                     baseFloorY = 3.6; onATrain = true;
+                } else if (isVideoMode) {
+                    // VİDEO MODU İÇİN TANRI MODU (ÇARPMAMA GARANTİSİ):
+                    // Engel yok edilir, oyun durmaz ve akıcı video çekimi devam eder.
+                    scene.remove(obs); 
+                    obstacles.splice(i, 1); 
+                    continue;
                 } else {
                     if (hasSkateboard) {
                         destroySkateboard(); scene.remove(obs); obstacles.splice(i, 1); continue;
