@@ -226,6 +226,24 @@
             transform: translateY(3px);
             box-shadow: 0 1px 0px #1e90ff;
         }
+        .btn-video {
+            background-color: #ff0055;
+            border: none;
+            color: white;
+            padding: 15px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            width: 100%;
+            margin-top: 10px;
+            box-shadow: 0 5px 0px #b8003d;
+        }
+        .btn-video:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0px #b8003d;
+        }
         .btn-full {
             padding: 15px 40px;
             font-size: 22px;
@@ -246,16 +264,18 @@
             <div id="menu-boards">Kaykayın: 🛹 0 adet</div>
         </div>
 
-        <button class="btn-green btn-full" onclick="startGame(false, false)">BAŞLA</button>
+        <button class="btn-green btn-full" onclick="startGame(false, false, false)">BAŞLA</button>
         
+        <button class="btn-video" onclick="startGame(false, true, true)">📹 VIDEO ÇEKME MODU</button>
+
         <button class="btn-red" style="font-size:16px; padding: 12px 10px;" onclick="toggleHardModeMenu()">
             🔥 Çok Zor Mod (10 kat zor ve 5 kat altın)
         </button>
 
         <div id="hard-mode-select">
             <div class="hard-btn-row">
-                <button class="btn-green" style="font-size:14px; padding:10px;" onclick="startGame(true, false)">Kendin Oyna</button>
-                <button class="btn-purple" style="font-size:14px; padding:10px;" onclick="startGame(true, true)">Bota Oynat (Ödül yok)</button>
+                <button class="btn-green" style="font-size:14px; padding:10px;" onclick="startGame(true, false, false)">Kendin Oyna</button>
+                <button class="btn-purple" style="font-size:14px; padding:10px;" onclick="startGame(true, true, false)">Bota Oynat (Ödül yok)</button>
             </div>
         </div>
 
@@ -282,7 +302,7 @@
     </div>
 
     <div id="ui">
-        <div class="ui-item">Skor: <span id="score-val">0</span></div>
+        <div id="score-ui" class="ui-item">Skor: <span id="score-val">0</span></div>
         <div id="gold-ui" class="ui-item">Altın: 🌟 <span id="gold-val">0</span></div>
         <div id="board-ui" class="ui-item">Kaykay: 🛹 <span id="board-val">0</span></div>
         <div id="mode-ui" class="ui-item"></div>
