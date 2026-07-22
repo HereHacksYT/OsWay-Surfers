@@ -178,10 +178,19 @@ function startGame(hardMode = false, botMode = false, videoMode = false) {
     isBotMode = botMode || videoMode;
     isVideoMode = videoMode;
 
-    // Normal hız değişmiyor, 0.40 olarak sabit
-    speed = 0.40; 
-    maxSpeed = 2.2;
-    goldMultiplier = 1;
+    if (isVideoMode) {
+        speed = 2.0; // Oyun hızı normalin 5 KATINA çıkarıldı (0.40 -> 2.0)
+        maxSpeed = 5.0;
+        goldMultiplier = 1;
+    } else if (isHardMode) {
+        speed = 1.8; 
+        maxSpeed = 4.5;
+        goldMultiplier = 5; 
+    } else {
+        speed = 0.40;
+        maxSpeed = 2.2;
+        goldMultiplier = 1;
+    }
 
     const modeUI = document.getElementById('mode-ui');
     const goldUI = document.getElementById('gold-ui');
@@ -217,7 +226,8 @@ function startGame(hardMode = false, botMode = false, videoMode = false) {
     document.getElementById('board-val').innerText = skateboardStock;
 
     clearInterval(obstacleIntervalId);
-    let obsTime = isHardMode ? 370 : 800;
+    // Video modunda engeller 2 KAT DAHA SIKI geliyor (800ms -> 400ms)
+    let obsTime = isVideoMode ? 400 : (isHardMode ? 370 : 800);
     obstacleIntervalId = setInterval(spawnObstacle, obsTime);
 
     gameActive = true;
@@ -481,7 +491,7 @@ function activateDoubleScore() {
     }, 1000);
 }
 
-// --- KAYKAY KULLANMA DOKUNULMADI ---
+// --- KAYKAY KULLANIMI ---
 function deploySkateboard() {
     if (hasSkateboard || !gameActive || !player) return;
 
@@ -543,59 +553,53 @@ function destroySkateboard() {
     isJumping = true;
 }
 
-// --- 20 KAT HIZLANDIRILMIŞ YAPAY ZEKA VE IŞIK HIZINDA SAĞ-SOL HAREKETLERİ ---
+// --- "PRO PLAYER" MÜKEMMEL PRO REFLEKS YAPAY ZEKASI ---
 function updateBotAI() {
     if (!isBotMode || !gameActive || !player) return;
 
-    // VİDEO MODU ÖZEL SÜPER HIZLI HAREKETLER
-    if (isVideoMode) {
-        coolMoveTimer++;
-        // Her 2 karede bir ultra hızlı şerit ve hareket değişimi (Sanal Titreme etkisi)
-        if (coolMoveTimer >= 2) { 
-            coolMoveTimer = 0;
+    let nearestObstacle = null;
+    let minObsDistance = 999;
 
-            const rand = Math.random();
-            if (rand < 0.45) {
-                // Işık hızında sürekli orta-sağ-sol yapma
+    // YAKINDAKİ ENGELLERİ TARAMA
+    for (let obs of obstacles) {
+        let dist = player.position.z - obs.position.z;
+        if (dist > 0 && dist < minObsDistance) {
+            minObsDistance = dist;
+            nearestObstacle = obs;
+        }
+    }
+
+    // YÜKSEK HIZA GÖRE ERKEN TESPİT (Sıfır Hile, Mükemmel Refleks)
+    let safeDistance = speed * 25; 
+
+    if (nearestObstacle && minObsDistance < safeDistance) {
+        let obsLane = lanes.indexOf(nearestObstacle.position.x);
+
+        // Eğer engel kendi şeridindeyse ANINDA MÜKEMMEL KAÇIŞ
+        if (obsLane === currentLane) {
+            if (nearestObstacle.userData.type === 'barrier') {
+                jump();
+            } else {
+                // Tren veya büyük bariyer varsa en güvenli boş şeride IŞIK HIZINDA geç
                 if (currentLane === 1) {
                     Math.random() > 0.5 ? moveLeft() : moveRight();
+                } else if (currentLane === 0) {
+                    moveRight();
                 } else {
-                    currentLane = 1; 
-                    targetX = lanes[1];
+                    moveLeft();
                 }
-            } else if (rand < 0.70 && !isJumping) {
-                jump();
-            } else if (rand < 0.85) {
-                duck();
             }
         }
-    } else {
-        // NORMAL BOT YAPAY ZEKASI
-        let nearestObstacle = null;
-        let minObsDistance = 999;
-
-        for (let obs of obstacles) {
-            let dist = player.position.z - obs.position.z;
-            if (dist > 0 && dist < minObsDistance) {
-                minObsDistance = dist;
-                nearestObstacle = obs;
-            }
-        }
-
-        if (nearestObstacle && minObsDistance < 25) {
-            let obsLane = lanes.indexOf(nearestObstacle.position.x);
-            if (obsLane === currentLane) {
-                if (nearestObstacle.userData.type === 'barrier') {
-                    jump();
-                } else {
-                    if (currentLane === 1) {
-                        Math.random() > 0.5 ? moveLeft() : moveRight();
-                    } else if (currentLane === 0) {
-                        moveRight();
-                    } else {
-                        moveLeft();
-                    }
-                }
+    } else if (isVideoMode) {
+        // ENGELLER YOKKEN ŞOV / HIZLI SAĞ-SOL (2 TANEYMİŞ GİBİ SİLÜET EFEKTİ)
+        coolMoveTimer++;
+        if (coolMoveTimer >= 2) {
+            coolMoveTimer = 0;
+            if (currentLane === 1) {
+                Math.random() > 0.5 ? moveLeft() : moveRight();
+            } else {
+                currentLane = 1;
+                targetX = lanes[1];
             }
         }
     }
@@ -683,8 +687,8 @@ function animate() {
     if (mixer && !hasSkateboard) mixer.update(delta);
 
     if (player) {
-        // Video modunda 20 kat daha hızlı yumuşatılmış sağ-sol hareketi (0.95 hızı)
-        let moveSpeed = isVideoMode ? 0.95 : 0.22;
+        // MÜKEMMEL VE ULTRA HIZLI ŞERİT GEÇİŞLERİ (0.98 hızı)
+        let moveSpeed = isVideoMode ? 0.98 : 0.22;
         player.position.x += (targetX - player.position.x) * moveSpeed * timeScale;
         player.position.y += jumpVelocity * timeScale;
         
@@ -708,7 +712,7 @@ function animate() {
 
     let onATrain = false;
 
-    // --- ENGELLER DÖNGÜSÜ ---
+    // --- ENGELLER VE ÇARPIŞMA KONTROLÜ ---
     for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
         obs.position.z += speed * timeScale;
@@ -720,15 +724,12 @@ function animate() {
             if (pBox.intersectsBox(oBox)) {
                 if (obs.userData.type === 'train' && (player.position.y - 0.9) >= 2.0) {
                     baseFloorY = 3.6; onATrain = true;
-                } else if (isVideoMode) {
-                    // VİDEO MODUNDA TAM ÖLÜMSÜZLÜK (HİÇ ÇARPMADAN AKMAYA DEVAM EDER)
-                    scene.remove(obs); 
-                    obstacles.splice(i, 1); 
-                    continue;
                 } else {
                     if (hasSkateboard) {
                         destroySkateboard(); scene.remove(obs); obstacles.splice(i, 1); continue;
-                    } else { gameOver(); }
+                    } else { 
+                        gameOver(); 
+                    }
                 }
             }
         }
