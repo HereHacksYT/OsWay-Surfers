@@ -3,21 +3,23 @@ let scene, camera, renderer;
 let player; 
 let obstacles = [];
 let coins = []; 
-let powerUps = []; // Özellikleri tutan dizi
+let powerUps = []; 
 let score = 0;
 let totalGold = 0; 
 let skateboardStock = 0; 
 let lastSpeedMilestone = 0; 
-let lastPowerUpMilestone = 0; // En son hangi 200 puanda özellik doğduğunu izler
+let lastPowerUpMilestone = 0; 
 let gameActive = false; 
 
-// Zor Mod ve Bot Değişkenleri
+// Zor Mod, Bot ve Video Modu Değişkenleri
 let isHardMode = false;
 let isBotMode = false;
+let isVideoMode = false; // Video Modu Kontrolü
+let coolMoveTimer = 0;  // Havalı bot hareketleri için zamanlayıcı
 let goldMultiplier = 1;
 let obstacleIntervalId = null;
 
-// Hız Ayarları (60 FPS standart baz alınarak ayarlandı)
+// Hız Ayarları
 let speed = 0.40; 
 let maxSpeed = 2.2; 
 
@@ -80,7 +82,7 @@ function loadGame() {
 
 // --- BAŞLANGIÇ ---
 function init() {
-    loadGame(); // Kayıtlı veriyi yükle
+    loadGame(); 
     
     const container = document.getElementById('canvas-container');
     
@@ -141,7 +143,7 @@ function buyOneBoard() {
     if (totalGold >= 5) {
         totalGold -= 5;
         skateboardStock += 1;
-        saveGame(); // HER İŞLEMDE KAYDET
+        saveGame(); 
         updateMarketUI();
     } else {
         alert("Yeterli altının yok! 1 Kaykay = 5 Altın.");
@@ -153,7 +155,7 @@ function buyBoardsWithAllGold() {
         let boardsToBuy = Math.floor(totalGold / 5); 
         totalGold = totalGold % 5; 
         skateboardStock += boardsToBuy;
-        saveGame(); // HER İŞLEMDE KAYDET
+        saveGame(); 
         updateMarketUI();
     } else {
         alert("Yeterli altının yok! Bir kaykay 5 Altın.");
@@ -171,14 +173,15 @@ function updateMarketUI() {
 }
 
 // --- OYUNU BAŞLATMA ---
-function startGame(hardMode = false, botMode = false) {
+function startGame(hardMode = false, botMode = false, videoMode = false) {
     isHardMode = hardMode;
     isBotMode = botMode;
+    isVideoMode = videoMode;
 
     if (isHardMode) {
-        speed = 1.8; // Çok Hızlı
+        speed = 1.8; 
         maxSpeed = 4.5;
-        goldMultiplier = 5; // 5 Kat Altın
+        goldMultiplier = 5; 
     } else {
         speed = 0.40;
         maxSpeed = 2.2;
@@ -186,22 +189,39 @@ function startGame(hardMode = false, botMode = false) {
     }
 
     const modeUI = document.getElementById('mode-ui');
-    if (isBotMode) {
-        modeUI.innerText = "🤖 BOT MODU (Ödül Yok)";
-    } else if (isHardMode) {
-        modeUI.innerText = "🔥 ÇOK ZOR MOD (3x Engel & 5x Altın)";
+    const goldUI = document.getElementById('gold-ui');
+    const boardUI = document.getElementById('board-ui');
+    const scoreUI = document.getElementById('score-ui');
+
+    if (isVideoMode) {
+        // VİDEO ÇEKME MODUNDA TÜM YAZI VE ARAYÜZLERİ GİZLE (SİNEMATİK)
+        document.getElementById('ui').style.display = 'none';
+        goldUI.style.display = 'none';
+        boardUI.style.display = 'none';
+        modeUI.style.display = 'none';
+        scoreUI.style.display = 'none';
     } else {
-        modeUI.innerText = "";
+        document.getElementById('ui').style.display = 'block';
+        goldUI.style.display = 'block';
+        boardUI.style.display = 'block';
+        scoreUI.style.display = 'block';
+        modeUI.style.display = 'block';
+
+        if (isBotMode) {
+            modeUI.innerText = "🤖 BOT MODU (Ödül Yok)";
+        } else if (isHardMode) {
+            modeUI.innerText = "🔥 ÇOK ZOR MOD (3x Engel & 5x Altın)";
+        } else {
+            modeUI.innerText = "";
+        }
     }
 
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('market-screen').style.display = 'none';
-    document.getElementById('ui').style.display = 'block';
     
     document.getElementById('gold-val').innerText = totalGold;
     document.getElementById('board-val').innerText = skateboardStock;
 
-    // Engel Süre Aralığını Ayarla (Zor Modda 3 kat daha sık = ~370ms, Normalde 1100ms)
     clearInterval(obstacleIntervalId);
     let obsTime = isHardMode ? 370 : 1100;
     obstacleIntervalId = setInterval(spawnObstacle, obsTime);
@@ -298,7 +318,6 @@ function spawnObstacle() {
     const obstacleGroup = new THREE.Group();
 
     if (obstacleType === 'train') {
-        // Tren Gövdesi
         const bodyGeo = new THREE.BoxGeometry(1.9, 2.7, 12);
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3c6382, metalness: 0.6, roughness: 0.2 });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
@@ -306,14 +325,12 @@ function spawnObstacle() {
         body.castShadow = true;
         obstacleGroup.add(body);
 
-        // Ön Cam Detayı
         const windowGeo = new THREE.BoxGeometry(1.7, 1.2, 0.1);
         const windowMat = new THREE.MeshStandardMaterial({ color: 0x1e272e, roughness: 0.1 });
         const frontWindow = new THREE.Mesh(windowGeo, windowMat);
         frontWindow.position.set(0, 1.8, 6.01);
         obstacleGroup.add(frontWindow);
 
-        // Farlar
         const headlightGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.2, 16);
         const headlightMat = new THREE.MeshBasicMaterial({ color: 0xfff200 });
         
@@ -329,14 +346,12 @@ function spawnObstacle() {
 
         obstacleGroup.userData = { type: 'train', heightLimit: 2.7 };
     } else {
-        // Bariyer Ana Çıta
         const barGeo = new THREE.BoxGeometry(2.2, 0.25, 0.25);
         const barMat = new THREE.MeshStandardMaterial({ color: 0xf5cd79 });
         const bar = new THREE.Mesh(barGeo, barMat);
         bar.position.y = 0.95;
         obstacleGroup.add(bar);
 
-        // Bariyer Siyah Şerit Detayları
         const stripeGeo = new THREE.BoxGeometry(0.3, 0.27, 0.27);
         const stripeMat = new THREE.MeshStandardMaterial({ color: 0x1e272e });
         for (let i = -0.8; i <= 0.8; i += 0.4) {
@@ -345,7 +360,6 @@ function spawnObstacle() {
             obstacleGroup.add(stripe);
         }
 
-        // Bariyer Metal Ayakları
         const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.0, 8);
         const legMat = new THREE.MeshStandardMaterial({ color: 0x57606f, metalness: 0.7 });
         
@@ -433,8 +447,10 @@ function spawnPowerUp() {
 function activateMagnet() {
     isMagnetActive = true;
     magnetTimer = 10;
-    document.getElementById('magnet-timer').innerText = `🧲 Mıknatıs: ${magnetTimer}s`;
-    document.getElementById('magnet-timer').style.display = 'block';
+    if (!isVideoMode) {
+        document.getElementById('magnet-timer').innerText = `🧲 Mıknatıs: ${magnetTimer}s`;
+        document.getElementById('magnet-timer').style.display = 'block';
+    }
 
     clearInterval(magnetInterval);
     magnetInterval = setInterval(() => {
@@ -443,7 +459,7 @@ function activateMagnet() {
             clearInterval(magnetInterval);
             isMagnetActive = false;
             document.getElementById('magnet-timer').style.display = 'none';
-        } else {
+        } else if (!isVideoMode) {
             document.getElementById('magnet-timer').innerText = `🧲 Mıknatıs: ${magnetTimer}s`;
         }
     }, 1000);
@@ -453,8 +469,10 @@ function activateMagnet() {
 function activateDoubleScore() {
     isDoubleScoreActive = true;
     doubleScoreTimer = 10;
-    document.getElementById('double-timer').innerText = `🌟 2X Puan: ${doubleScoreTimer}s`;
-    document.getElementById('double-timer').style.display = 'block';
+    if (!isVideoMode) {
+        document.getElementById('double-timer').innerText = `🌟 2X Puan: ${doubleScoreTimer}s`;
+        document.getElementById('double-timer').style.display = 'block';
+    }
 
     clearInterval(doubleScoreInterval);
     doubleScoreInterval = setInterval(() => {
@@ -463,7 +481,7 @@ function activateDoubleScore() {
             clearInterval(doubleScoreInterval);
             isDoubleScoreActive = false;
             document.getElementById('double-timer').style.display = 'none';
-        } else {
+        } else if (!isVideoMode) {
             document.getElementById('double-timer').innerText = `🌟 2X Puan: ${doubleScoreTimer}s`;
         }
     }, 1000);
@@ -471,17 +489,15 @@ function activateDoubleScore() {
 
 // --- KAYKAY TETİKLEME ---
 function deploySkateboard() {
-    if (hasSkateboard || !gameActive || !player || isBotMode) return;
-    if (skateboardStock <= 0) return;
-
-    skateboardStock--;
-    saveGame(); 
-    document.getElementById('board-val').innerText = skateboardStock;
+    if (hasSkateboard || !gameActive || !player) return;
 
     hasSkateboard = true;
     skateboardTimer = 15; 
-    document.getElementById('board-timer').innerText = `🛹 Kaykay: ${skateboardTimer}s`;
-    document.getElementById('board-timer').style.display = 'block';
+    
+    if (!isVideoMode) {
+        document.getElementById('board-timer').innerText = `🛹 Kaykay: ${skateboardTimer}s`;
+        document.getElementById('board-timer').style.display = 'block';
+    }
 
     const skateboardGroup = new THREE.Group();
     const woodMat = new THREE.MeshStandardMaterial({ color: 0xcd853f });
@@ -507,7 +523,9 @@ function deploySkateboard() {
             return;
         }
         skateboardTimer--;
-        document.getElementById('board-timer').innerText = `🛹 Kaykay: ${skateboardTimer}s`;
+        if (!isVideoMode) {
+            document.getElementById('board-timer').innerText = `🛹 Kaykay: ${skateboardTimer}s`;
+        }
         
         if (skateboardTimer <= 0) {
             destroySkateboard();
@@ -531,7 +549,7 @@ function destroySkateboard() {
     isJumping = true;
 }
 
-// --- BOT YAPAY ZEKASI (MÜKEMMEL REFLEKS) ---
+// --- BOT YAPAY ZEKASI VE VİDEO MODU HAVALI HAREKETLER ---
 function updateBotAI() {
     if (!isBotMode || !gameActive || !player) return;
 
@@ -546,6 +564,37 @@ function updateBotAI() {
         }
     }
 
+    // VİDEO MODU ÖZEL HAVALI HAREKET LER (TİKTOK / REELS PARKOUR STİLİ)
+    if (isVideoMode) {
+        coolMoveTimer++;
+        if (coolMoveTimer > 15) { 
+            coolMoveTimer = 0;
+
+            // Rastgele akrobatik hareketler yap
+            const rand = Math.random();
+            if (rand < 0.35 && !isJumping) {
+                jump(); // Sık zıplama
+            } else if (rand < 0.65) {
+                // Şerit değiştir (Acrobatic lane-change)
+                if (currentLane === 1) {
+                    Math.random() > 0.5 ? moveLeft() : moveRight();
+                } else if (currentLane === 0) {
+                    moveRight();
+                } else {
+                    moveLeft();
+                }
+            } else if (rand < 0.85) {
+                duck(); // Eğilme / Takla
+            }
+
+            // Otomatik Kaykay Kullan
+            if (!hasSkateboard && Math.random() < 0.3) {
+                deploySkateboard();
+            }
+        }
+    }
+
+    // ENGELLERDEN KACINMA SİSTEMİ (ÖNCELİKLİ)
     if (nearestObstacle && minObsDistance < (speed * 28)) {
         let obsLane = lanes.indexOf(nearestObstacle.position.x);
         
@@ -562,7 +611,8 @@ function updateBotAI() {
                 }
             }
         }
-    } else {
+    } else if (!isVideoMode) {
+        // NORMAL BOT İÇİN ALTIN TOPLAMA SİSTEMİ
         let nearestCoin = null;
         let minCoinDist = 999;
 
@@ -715,7 +765,9 @@ function animate() {
             scene.remove(obs); obstacles.splice(i, 1);
             
             score += isDoubleScoreActive ? 20 : 10;
-            document.getElementById('score-val').innerText = score;
+            if (!isVideoMode) {
+                document.getElementById('score-val').innerText = score;
+            }
 
             if (score > 0 && Math.floor(score / 200) > Math.floor(lastPowerUpMilestone / 200)) {
                 lastPowerUpMilestone = score;
@@ -778,7 +830,9 @@ function animate() {
                     totalGold += (1 * goldMultiplier);
                     saveGame(); 
                 }
-                document.getElementById('gold-val').innerText = totalGold;
+                if (!isVideoMode) {
+                    document.getElementById('gold-val').innerText = totalGold;
+                }
                 scene.remove(coin);
                 coins.splice(i, 1);
                 continue;
@@ -838,6 +892,7 @@ function resetGame() {
     isJumping = false; jumpVelocity = 0; score = 0;
     lastSpeedMilestone = 0; lastPowerUpMilestone = 0;
     hasSkateboard = false;
+    isVideoMode = false;
     
     isMagnetActive = false; isDoubleScoreActive = false;
 
