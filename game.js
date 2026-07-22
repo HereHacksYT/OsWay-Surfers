@@ -175,22 +175,13 @@ function updateMarketUI() {
 // --- OYUNU BAŞLATMA ---
 function startGame(hardMode = false, botMode = false, videoMode = false) {
     isHardMode = hardMode;
-    isBotMode = botMode || videoMode; // Video modu otomatik olarak bot modudur
+    isBotMode = botMode || videoMode;
     isVideoMode = videoMode;
 
-    if (isVideoMode) {
-        speed = 0.85; // Video modunda daha yüksek ve akıcı bir başlangıç hızı
-        maxSpeed = 3.0;
-        goldMultiplier = 1;
-    } else if (isHardMode) {
-        speed = 1.8; 
-        maxSpeed = 4.5;
-        goldMultiplier = 5; 
-    } else {
-        speed = 0.40;
-        maxSpeed = 2.2;
-        goldMultiplier = 1;
-    }
+    // Normal hız değişmiyor, 0.40 olarak sabit
+    speed = 0.40; 
+    maxSpeed = 2.2;
+    goldMultiplier = 1;
 
     const modeUI = document.getElementById('mode-ui');
     const goldUI = document.getElementById('gold-ui');
@@ -198,7 +189,6 @@ function startGame(hardMode = false, botMode = false, videoMode = false) {
     const scoreUI = document.getElementById('score-ui');
 
     if (isVideoMode) {
-        // VİDEO ÇEKME MODUNDA TÜM YAZI VE ARAYÜZLERİ GİZLE (SİNEMATİK KUSURSUZ GÖRÜNÜM)
         document.getElementById('ui').style.display = 'none';
         goldUI.style.display = 'none';
         boardUI.style.display = 'none';
@@ -227,7 +217,7 @@ function startGame(hardMode = false, botMode = false, videoMode = false) {
     document.getElementById('board-val').innerText = skateboardStock;
 
     clearInterval(obstacleIntervalId);
-    let obsTime = isHardMode ? 370 : (isVideoMode ? 600 : 1100);
+    let obsTime = isHardMode ? 370 : 800;
     obstacleIntervalId = setInterval(spawnObstacle, obsTime);
 
     gameActive = true;
@@ -491,7 +481,7 @@ function activateDoubleScore() {
     }, 1000);
 }
 
-// --- KAYKAY TETİKLEME ---
+// --- KAYKAY KULLANMA DOKUNULMADI ---
 function deploySkateboard() {
     if (hasSkateboard || !gameActive || !player) return;
 
@@ -553,67 +543,59 @@ function destroySkateboard() {
     isJumping = true;
 }
 
-// --- SÜPER HIZLI VE KUSURSUZ BOT YAPAY ZEKASI (VİDEO MODU İÇİN) ---
+// --- 20 KAT HIZLANDIRILMIŞ YAPAY ZEKA VE IŞIK HIZINDA SAĞ-SOL HAREKETLERİ ---
 function updateBotAI() {
     if (!isBotMode || !gameActive || !player) return;
 
-    let nearestObstacle = null;
-    let minObsDistance = 999;
-
-    // En yakın engeli tespit et
-    for (let obs of obstacles) {
-        let dist = player.position.z - obs.position.z;
-        if (dist > 0 && dist < minObsDistance) {
-            minObsDistance = dist;
-            nearestObstacle = obs;
-        }
-    }
-
-    // ENGELLERDEN KUSURSUZ VE SÜPER HIZLI KAÇINMA SİSTEMİ
-    if (nearestObstacle && minObsDistance < (speed * 32)) {
-        let obsLane = lanes.indexOf(nearestObstacle.position.x);
-        
-        if (obsLane === currentLane) {
-            if (nearestObstacle.userData.type === 'barrier') {
-                jump();
-            } else {
-                // Tren varsa güvenli olan boş şeride anında geç
-                if (currentLane === 1) {
-                    Math.random() > 0.5 ? moveLeft() : moveRight();
-                } else if (currentLane === 0) {
-                    moveRight();
-                } else {
-                    moveLeft();
-                }
-            }
-        }
-    } 
-
-    // VİDEO MODU ÖZEL HAVALI HAREKETLER (SERİ, TEMPOLU VE AKROBATİK)
+    // VİDEO MODU ÖZEL SÜPER HIZLI HAREKETLER
     if (isVideoMode) {
         coolMoveTimer++;
-        if (coolMoveTimer > 6) { // Çok daha hızlı aksiyon döngüsü (6 karede bir)
+        // Her 2 karede bir ultra hızlı şerit ve hareket değişimi (Sanal Titreme etkisi)
+        if (coolMoveTimer >= 2) { 
             coolMoveTimer = 0;
 
             const rand = Math.random();
-            if (rand < 0.40 && !isJumping) {
-                jump(); // Sık zıplama
-            } else if (rand < 0.75) {
-                // Havalı şerit değiştirme
+            if (rand < 0.45) {
+                // Işık hızında sürekli orta-sağ-sol yapma
                 if (currentLane === 1) {
                     Math.random() > 0.5 ? moveLeft() : moveRight();
-                } else if (currentLane === 0) {
-                    moveRight();
                 } else {
-                    moveLeft();
+                    currentLane = 1; 
+                    targetX = lanes[1];
                 }
-            } else if (rand < 0.90) {
-                duck(); // Eğilme / Takla hareketi
+            } else if (rand < 0.70 && !isJumping) {
+                jump();
+            } else if (rand < 0.85) {
+                duck();
             }
+        }
+    } else {
+        // NORMAL BOT YAPAY ZEKASI
+        let nearestObstacle = null;
+        let minObsDistance = 999;
 
-            // Sürekli Kaykay Açma Şovu
-            if (!hasSkateboard && Math.random() < 0.4) {
-                deploySkateboard();
+        for (let obs of obstacles) {
+            let dist = player.position.z - obs.position.z;
+            if (dist > 0 && dist < minObsDistance) {
+                minObsDistance = dist;
+                nearestObstacle = obs;
+            }
+        }
+
+        if (nearestObstacle && minObsDistance < 25) {
+            let obsLane = lanes.indexOf(nearestObstacle.position.x);
+            if (obsLane === currentLane) {
+                if (nearestObstacle.userData.type === 'barrier') {
+                    jump();
+                } else {
+                    if (currentLane === 1) {
+                        Math.random() > 0.5 ? moveLeft() : moveRight();
+                    } else if (currentLane === 0) {
+                        moveRight();
+                    } else {
+                        moveLeft();
+                    }
+                }
             }
         }
     }
@@ -701,8 +683,8 @@ function animate() {
     if (mixer && !hasSkateboard) mixer.update(delta);
 
     if (player) {
-        // Video modunda şerit değiştirme hızını (0.22 -> 0.45) süper seri yaptık
-        let moveSpeed = isVideoMode ? 0.45 : 0.22;
+        // Video modunda 20 kat daha hızlı yumuşatılmış sağ-sol hareketi (0.95 hızı)
+        let moveSpeed = isVideoMode ? 0.95 : 0.22;
         player.position.x += (targetX - player.position.x) * moveSpeed * timeScale;
         player.position.y += jumpVelocity * timeScale;
         
@@ -726,7 +708,7 @@ function animate() {
 
     let onATrain = false;
 
-    // --- ENGELLER DÖNGÜSÜ VE ÇARPIŞMA KONTROLÜ ---
+    // --- ENGELLER DÖNGÜSÜ ---
     for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
         obs.position.z += speed * timeScale;
@@ -739,8 +721,7 @@ function animate() {
                 if (obs.userData.type === 'train' && (player.position.y - 0.9) >= 2.0) {
                     baseFloorY = 3.6; onATrain = true;
                 } else if (isVideoMode) {
-                    // VİDEO MODU İÇİN TANRI MODU (ÇARPMAMA GARANTİSİ):
-                    // Engel yok edilir, oyun durmaz ve akıcı video çekimi devam eder.
+                    // VİDEO MODUNDA TAM ÖLÜMSÜZLÜK (HİÇ ÇARPMADAN AKMAYA DEVAM EDER)
                     scene.remove(obs); 
                     obstacles.splice(i, 1); 
                     continue;
@@ -798,7 +779,7 @@ function animate() {
         }
     }
 
-    // --- ALTINLAR DÖNGÜSÜ (MIKNATIS DAHİL) ---
+    // --- ALTINLAR DÖNGÜSÜ ---
     for (let i = coins.length - 1; i >= 0; i--) {
         const coin = coins[i];
         
