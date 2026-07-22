@@ -179,7 +179,7 @@ function startGame(hardMode = false, botMode = false, videoMode = false) {
     isVideoMode = videoMode;
 
     if (isVideoMode) {
-        speed = 2.0; // Oyun hızı normalin 5 KATINA çıkarıldı (0.40 -> 2.0)
+        speed = 2.0; // 5 Kat Hız
         maxSpeed = 5.0;
         goldMultiplier = 1;
     } else if (isHardMode) {
@@ -226,7 +226,6 @@ function startGame(hardMode = false, botMode = false, videoMode = false) {
     document.getElementById('board-val').innerText = skateboardStock;
 
     clearInterval(obstacleIntervalId);
-    // Video modunda engeller 2 KAT DAHA SIKI geliyor (800ms -> 400ms)
     let obsTime = isVideoMode ? 400 : (isHardMode ? 370 : 800);
     obstacleIntervalId = setInterval(spawnObstacle, obsTime);
 
@@ -553,53 +552,75 @@ function destroySkateboard() {
     isJumping = true;
 }
 
-// --- "PRO PLAYER" MÜKEMMEL PRO REFLEKS YAPAY ZEKASI ---
+// --- GELİŞMİŞ ŞERİT VE TREN TARAMA GELİŞMİŞ AI ---
+function isLaneSafe(laneIdx) {
+    let lanePos = lanes[laneIdx];
+    for (let obs of obstacles) {
+        if (obs.position.x === lanePos) {
+            let distZ = player.position.z - obs.position.z;
+            // Trenlerin boyu 12 birim olduğu için z hizasında geniş bir emniyet payı bırakıyoruz
+            let safeDistanceAhead = obs.userData.type === 'train' ? 18 : 10;
+            let safeDistanceBehind = obs.userData.type === 'train' ? -8 : -3;
+
+            if (distZ < safeDistanceAhead && distZ > safeDistanceBehind) {
+                return false; // Bu şeritte tehlikeli engel/tren var!
+            }
+        }
+    }
+    return true; // Şerit tamamen güvenli
+}
+
 function updateBotAI() {
     if (!isBotMode || !gameActive || !player) return;
 
-    let nearestObstacle = null;
-    let minObsDistance = 999;
+    let safeLanes = [
+        isLaneSafe(0),
+        isLaneSafe(1),
+        isLaneSafe(2)
+    ];
 
-    // YAKINDAKİ ENGELLERİ TARAMA
-    for (let obs of obstacles) {
-        let dist = player.position.z - obs.position.z;
-        if (dist > 0 && dist < minObsDistance) {
-            minObsDistance = dist;
-            nearestObstacle = obs;
-        }
-    }
-
-    // YÜKSEK HIZA GÖRE ERKEN TESPİT (Sıfır Hile, Mükemmel Refleks)
-    let safeDistance = speed * 25; 
-
-    if (nearestObstacle && minObsDistance < safeDistance) {
-        let obsLane = lanes.indexOf(nearestObstacle.position.x);
-
-        // Eğer engel kendi şeridindeyse ANINDA MÜKEMMEL KAÇIŞ
-        if (obsLane === currentLane) {
-            if (nearestObstacle.userData.type === 'barrier') {
-                jump();
-            } else {
-                // Tren veya büyük bariyer varsa en güvenli boş şeride IŞIK HIZINDA geç
-                if (currentLane === 1) {
-                    Math.random() > 0.5 ? moveLeft() : moveRight();
-                } else if (currentLane === 0) {
-                    moveRight();
-                } else {
-                    moveLeft();
+    // Şuan bulunulan şerit güvenli değilse anında güvenli bir yere geç
+    if (!safeLanes[currentLane]) {
+        // Önümüzdeki engeli tespit et
+        let frontObstacle = null;
+        let minObsDistance = 999;
+        for (let obs of obstacles) {
+            if (obs.position.x === lanes[currentLane]) {
+                let dist = player.position.z - obs.position.z;
+                if (dist > 0 && dist < minObsDistance) {
+                    minObsDistance = dist;
+                    frontObstacle = obs;
                 }
             }
         }
+
+        // Eğer bariyerse üstünden atla
+        if (frontObstacle && frontObstacle.userData.type === 'barrier' && !isJumping) {
+            jump();
+            return;
+        }
+
+        // Tren ise kesinlikle YAN GÜVENLİ ŞERİDE geç
+        if (currentLane === 1) {
+            if (safeLanes[0]) moveLeft();
+            else if (safeLanes[2]) moveRight();
+        } else if (currentLane === 0) {
+            if (safeLanes[1]) moveRight();
+            else if (safeLanes[2]) { moveRight(); moveRight(); }
+        } else if (currentLane === 2) {
+            if (safeLanes[1]) moveLeft();
+            else if (safeLanes[0]) { moveLeft(); moveLeft(); }
+        }
     } else if (isVideoMode) {
-        // ENGELLER YOKKEN ŞOV / HIZLI SAĞ-SOL (2 TANEYMİŞ GİBİ SİLÜET EFEKTİ)
+        // HER YER GÜVENLİYSE ŞOV YAP (Sadece yan şeritler de %100 boşsa)
         coolMoveTimer++;
-        if (coolMoveTimer >= 2) {
+        if (coolMoveTimer >= 3) {
             coolMoveTimer = 0;
             if (currentLane === 1) {
-                Math.random() > 0.5 ? moveLeft() : moveRight();
+                if (safeLanes[0] && Math.random() > 0.5) moveLeft();
+                else if (safeLanes[2]) moveRight();
             } else {
-                currentLane = 1;
-                targetX = lanes[1];
+                if (safeLanes[1]) { currentLane = 1; targetX = lanes[1]; }
             }
         }
     }
@@ -687,8 +708,8 @@ function animate() {
     if (mixer && !hasSkateboard) mixer.update(delta);
 
     if (player) {
-        // MÜKEMMEL VE ULTRA HIZLI ŞERİT GEÇİŞLERİ (0.98 hızı)
-        let moveSpeed = isVideoMode ? 0.98 : 0.22;
+        // Yumuşak ve seri şerit geçiş hızı (0.35)
+        let moveSpeed = isVideoMode ? 0.35 : 0.22;
         player.position.x += (targetX - player.position.x) * moveSpeed * timeScale;
         player.position.y += jumpVelocity * timeScale;
         
